@@ -251,23 +251,33 @@ class EchoDocApp {
     try {
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
       this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, sampleRate: 16000 } });
-
       const source = this.audioContext.createMediaStreamSource(this.mediaStream);
-      this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
 
-      this.processor.onaudioprocess = (e) => {
-        if (!this.isRecording) return;
-        const inputData = e.inputBuffer.getChannelData(0);
-        const pcm16 = this.floatTo16BitPCM(inputData);
-
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-          this.ws.send(pcm16);
+      // Prefer modern AudioWorkletNode (dedicated audio rendering thread)
+      if (this.audioContext.audioWorklet) {
+        try {
+          await this.audioContext.audioWorklet.addModule('/pcm_processor.js');
+          this.processor = new AudioWorkletNode(this.audioContext, 'pcm-processor');
+          this.processor.port.onmessage = (event) => {
+            if (!this.isRecording) return;
+            const { pcm, floatData } = event.data;
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+              this.ws.send(pcm);
+            }
+            if (floatData) {
+              this.drawWaveform(floatData);
+            }
+          };
+          source.connect(this.processor);
+          this.processor.connect(this.audioContext.destination);
+          console.log('⚡ AudioWorklet pipeline initialized successfully');
+        } catch (workletErr) {
+          console.warn('AudioWorklet module loading failed, using fallback:', workletErr);
+          this.initScriptProcessorFallback(source);
         }
-        this.drawWaveform(inputData);
-      };
-
-      source.connect(this.processor);
-      this.processor.connect(this.audioContext.destination);
+      } else {
+        this.initScriptProcessorFallback(source);
+      }
 
       this.isRecording = true;
       this.micText.innerText = 'Stop Dictation';
@@ -280,6 +290,22 @@ class EchoDocApp {
     } catch (err) {
       alert('Microphone access failed or denied: ' + err.message);
     }
+  }
+
+  initScriptProcessorFallback(source) {
+    this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+    this.processor.onaudioprocess = (e) => {
+      if (!this.isRecording) return;
+      const inputData = e.inputBuffer.getChannelData(0);
+      const pcm16 = this.floatTo16BitPCM(inputData);
+
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(pcm16);
+      }
+      this.drawWaveform(inputData);
+    };
+    source.connect(this.processor);
+    this.processor.connect(this.audioContext.destination);
   }
 
   stopRecording() {

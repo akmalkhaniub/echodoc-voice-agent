@@ -43,13 +43,32 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if (req.url === '/api/export' && req.method === 'GET') {
-    const md = clinicalEngine.exportMarkdown({
-      patientName: 'Jane Doe (DOB: 05/12/1978)',
-      physicianName: 'Dr. Sarah Jenkins, MD'
-    });
-    res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8' });
-    res.end(md);
+  if (req.url === '/api/token' && req.method === 'GET') {
+    const apiKey = process.env.ASSEMBLYAI_API_KEY;
+    if (!apiKey || apiKey === 'your_assemblyai_api_key_here') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ token: 'mock-ephemeral-token-' + Date.now(), isMock: true }));
+      return;
+    }
+
+    // Request ephemeral token from AssemblyAI
+    fetch('https://api.assemblyai.com/v2/realtime/token', {
+      method: 'POST',
+      headers: {
+        'Authorization': apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ expires_in: 480 })
+    })
+      .then(resp => resp.json())
+      .then(data => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(data));
+      })
+      .catch(err => {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message, isMock: true, token: 'fallback-token' }));
+      });
     return;
   }
 
