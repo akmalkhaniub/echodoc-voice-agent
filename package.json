@@ -1,0 +1,29 @@
+{
+  "name": "echodoc-voice-agent",
+  "version": "1.0.0",
+  "description": "Sub-Second Clinical Voice Scribe & Diagnostic Copilot powered by AssemblyAI Streaming STT",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node test/simulate_consultation.js"
+  },
+  "dependencies": {
+    "assemblyai": "^4.9.0",
+    "dotenv": "^16.4.7",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {},
+  "keywords": [
+    "assemblyai",
+    "voice-agent",
+    "real-time",
+    "speech-to-text",
+    "clinical-scribe",
+    "soap-notes",
+    "hackathon"
+  ],
+  "author": "Antigravity Builder",
+  "license": "MIT"
+}
