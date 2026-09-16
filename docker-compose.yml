@@ -1,0 +1,25 @@
+services:
+  echodoc-voice-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: echodoc-voice-agent:latest
+    container_name: echodoc-voice-agent
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - ASSEMBLYAI_API_KEY=${ASSEMBLYAI_API_KEY:-your_assemblyai_api_key_here}
+      - MOCK_STREAMING=${MOCK_STREAMING:-false}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    labels:
+      org.opencontainers.image.title: "EchoDoc Clinical Voice Agent"
+      org.opencontainers.image.description: "Sub-Second Clinical Voice Scribe & Diagnostic Copilot"
+      org.opencontainers.image.version: "1.0.0"

@@ -1,0 +1,42 @@
+# ==============================================================================
+# AWS App Runner Service Specification
+# Docs: https://docs.aws.amazon.com/apprunner/latest/dg/manage-create.html
+# ==============================================================================
+version: 1.0
+runtime: custom
+build:
+  commands:
+    build:
+      - echo "Building EchoDoc for AWS App Runner..."
+run:
+  runtime-version: custom
+  command: node src/server.js
+  network:
+    port: 3000
+    env: PORT
+  env:
+    - name: NODE_ENV
+      value: production
+    - name: MOCK_STREAMING
+      value: "false"
+  secrets:
+    - name: ASSEMBLYAI_API_KEY
+      value-from: "arn:aws:secretsmanager:us-east-1:123456789012:secret:echodoc/assemblyai-key"
+
+# Service Configuration for App Runner Console / CLI
+service:
+  serviceName: echodoc-voice-agent
+  instanceConfiguration:
+    cpu: "1 vCPU"
+    memory: "2 GB"
+  healthCheckConfiguration:
+    protocol: HTTP
+    path: /api/health
+    interval: 10
+    timeout: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 3
+  autoScalingConfiguration:
+    minSize: 1
+    maxSize: 5
+    maxConcurrency: 100

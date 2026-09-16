@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: echodoc-config
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  MOCK_STREAMING: "false"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: echodoc-secrets
+type: Opaque
+stringData:
+  assemblyai-api-key: "your_assemblyai_api_key_here"

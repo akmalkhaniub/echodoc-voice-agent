@@ -1,0 +1,52 @@
+# ==============================================================================
+# Azure Container Apps (ACA) YAML Specification
+# Docs: https://learn.microsoft.com/en-us/azure/container-apps/azure-resource-manager-api-spec
+# ==============================================================================
+properties:
+  managedEnvironmentId: /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP>/providers/Microsoft.App/managedEnvironments/<ENVIRONMENT_NAME>
+  configuration:
+    ingress:
+      external: true
+      targetPort: 3000
+      transport: auto
+      allowInsecure: false
+    secrets:
+      - name: assemblyai-api-key
+        value: "your_assemblyai_api_key_here"
+  template:
+    containers:
+      - name: echodoc-voice-agent
+        image: <ACR_NAME>.azurecr.io/echodoc-voice-agent:latest
+        resources:
+          cpu: 0.5
+          memory: 1.0Gi
+        env:
+          - name: NODE_ENV
+            value: production
+          - name: PORT
+            value: "3000"
+          - name: MOCK_STREAMING
+            value: "false"
+          - name: ASSEMBLYAI_API_KEY
+            secretRef: assemblyai-api-key
+        probes:
+          - type: Liveness
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          - type: Readiness
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 2
+            periodSeconds: 5
+    scale:
+      minReplicas: 1
+      maxReplicas: 5
+      rules:
+        - name: http-scaling
+          http:
+            metadata:
+              concurrentRequests: "50"
