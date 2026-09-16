@@ -75,6 +75,30 @@ export class ClinicalEngine {
   }
 
   /**
+   * Check a list of drugs against contraindication rules
+   * @param {string[]} drugList 
+   * @returns {Array} List of matched safety alerts
+   */
+  checkDrugs(drugList = []) {
+    const list = drugList.map(d => d.toLowerCase().trim());
+    const alerts = [];
+    for (const rule of CONTRAINDICATION_RULES) {
+      if (list.includes(rule.drugA)) {
+        for (const drugB of rule.drugB) {
+          if (list.includes(drugB)) {
+            alerts.push({
+              severity: rule.severity,
+              title: `Contraindicated Pair: ${rule.drugA.toUpperCase()} + ${drugB.toUpperCase()}`,
+              description: rule.warning
+            });
+          }
+        }
+      }
+    }
+    return alerts;
+  }
+
+  /**
    * Process a finalized transcript segment from AssemblyAI
    * @param {string} text 
    * @param {string} speaker 

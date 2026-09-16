@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node test/simulate_consultation.js",
+    "test": "node test/simulate_consultation.js && node test/verify_assemblyai_v3.js",
+    "test:live": "node test/verify_assemblyai_v3.js",
+    "test:sim": "node test/simulate_consultation.js",
     "docker:build": "docker build -t echodoc-voice-agent:latest .",
     "docker:run": "docker run -d -p 3000:3000 --name echodoc-voice-agent echodoc-voice-agent:latest",
     "docker:compose": "docker compose up -d",

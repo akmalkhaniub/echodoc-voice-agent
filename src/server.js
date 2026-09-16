@@ -5,12 +5,16 @@ import { fileURLToPath } from 'url';
 import { WebSocketServer, WebSocket } from 'ws';
 import dotenv from 'dotenv';
 import { AssemblyAIStreamingClient } from './assemblyai_client.js';
+import { AssemblyAIVoiceAgentClient } from './voice_agent_client.js';
 import { ClinicalEngine } from './clinical_engine.js';
-
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Load local project .env first, then fallback to master hackathons .env
+dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const PORT = process.env.PORT || 3000;
 
@@ -43,22 +47,17 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if (req.url === '/api/token' && req.method === 'GET') {
+  // 1. Streaming STT v3 Token Minting (Browser Safe)
+  if ((req.url === '/api/token' || req.url === '/api/token/stt') && req.method === 'GET') {
     const apiKey = process.env.ASSEMBLYAI_API_KEY;
     if (!apiKey || apiKey === 'your_assemblyai_api_key_here') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ token: 'mock-ephemeral-token-' + Date.now(), isMock: true }));
+      res.end(JSON.stringify({ token: 'mock-stt-token-' + Date.now(), isMock: true }));
       return;
     }
 
-    // Request ephemeral token from AssemblyAI
-    fetch('https://api.assemblyai.com/v2/realtime/token', {
-      method: 'POST',
-      headers: {
-        'Authorization': apiKey,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ expires_in: 480 })
+    fetch('https://streaming.assemblyai.com/v3/token?expires_in_seconds=60', {
+      headers: { 'Authorization': apiKey }
     })
       .then(resp => resp.json())
       .then(data => {
@@ -68,6 +67,30 @@ const server = http.createServer((req, res) => {
       .catch(err => {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message, isMock: true, token: 'fallback-token' }));
+      });
+    return;
+  }
+
+  // 2. Voice Agent API Token Minting (Browser Safe)
+  if (req.url === '/api/token/agent' && req.method === 'GET') {
+    const apiKey = process.env.ASSEMBLYAI_API_KEY;
+    if (!apiKey || apiKey === 'your_assemblyai_api_key_here') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ token: 'mock-agent-token-' + Date.now(), isMock: true }));
+      return;
+    }
+
+    fetch('https://agents.assemblyai.com/v1/token?expires_in_seconds=300', {
+      headers: { 'Authorization': `Bearer ${apiKey}` }
+    })
+      .then(resp => resp.json())
+      .then(data => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(data));
+      })
+      .catch(err => {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message, isMock: true, token: 'fallback-agent-token' }));
       });
     return;
   }
@@ -108,6 +131,8 @@ wss.on('connection', (clientWs) => {
   console.log('🔗 [Server] Web Client connected to /ws');
 
   let assemblyClient = null;
+  let voiceAgentClient = null;
+  let activeMode = 'STT'; // 'STT' | 'VOICE_AGENT'
 
   // Helper to send JSON packet to browser client
   const sendToClient = (type, payload = {}) => {
@@ -117,9 +142,11 @@ wss.on('connection', (clientWs) => {
   };
 
   clientWs.on('message', async (data, isBinary) => {
-    // 1. Binary Audio Frame (16kHz PCM from browser AudioWorklet / Mic)
+    // 1. Binary Audio Frame from browser mic / audio worklet
     if (isBinary) {
-      if (assemblyClient) {
+      if (activeMode === 'VOICE_AGENT' && voiceAgentClient) {
+        voiceAgentClient.sendAudio(data);
+      } else if (activeMode === 'STT' && assemblyClient) {
         assemblyClient.sendAudio(data);
       }
       return;
@@ -129,7 +156,9 @@ wss.on('connection', (clientWs) => {
     try {
       const msg = JSON.parse(data.toString());
 
+      // --- AMBIENT CLINICAL SCRIBE (STT v3) ---
       if (msg.action === 'START_SESSION') {
+        activeMode = 'STT';
         clinicalEngine.reset();
         assemblyClient = new AssemblyAIStreamingClient(process.env.ASSEMBLYAI_API_KEY, {
           sampleRate: 16000
@@ -140,10 +169,10 @@ wss.on('connection', (clientWs) => {
         });
 
         assemblyClient.on('final_transcript', (data) => {
-          sendToClient('FINAL_TRANSCRIPT', { text: data.text });
+          sendToClient('FINAL_TRANSCRIPT', { text: data.text, speaker: data.speaker });
 
-          // Process clinical cues
-          const updates = clinicalEngine.processUtterance(data.text, 'Clinician');
+          // Process clinical cues into SOAP notes and sentinel alerts
+          const updates = clinicalEngine.processUtterance(data.text, data.speaker || 'Clinician');
           if (updates) {
             if (updates.newSoapItems.length > 0) {
               sendToClient('SOAP_UPDATE', {
@@ -164,9 +193,10 @@ wss.on('connection', (clientWs) => {
         await assemblyClient.connect();
         sendToClient('SESSION_STARTED', {
           isMock: assemblyClient.isMock,
+          mode: 'STT',
           message: assemblyClient.isMock 
             ? 'Running in local simulator mode. Click "Run Simulated Consultation" or speak with microphone.' 
-            : 'Connected directly to live AssemblyAI Streaming WebSocket.'
+            : 'Connected directly to live AssemblyAI Streaming v3 WebSocket (Universal-3.5-Pro).'
         });
       }
 
@@ -181,6 +211,85 @@ wss.on('connection', (clientWs) => {
         });
       }
 
+      // --- CONVERSATIONAL VOICE AGENT (Voice Agent API v1) ---
+      else if (msg.action === 'START_VOICE_AGENT') {
+        activeMode = 'VOICE_AGENT';
+        voiceAgentClient = new AssemblyAIVoiceAgentClient(process.env.ASSEMBLYAI_API_KEY, {
+          clinicalEngine,
+          voice: msg.voice || 'anna'
+        });
+
+        voiceAgentClient.on('session_ready', (ev) => {
+          sendToClient('VOICE_AGENT_READY', {
+            sessionId: ev.sessionId,
+            voice: voiceAgentClient.voice,
+            message: 'Voice Agent initialized. Speak into your microphone to talk to EchoDoc.'
+          });
+        });
+
+        voiceAgentClient.on('user_speech_started', () => {
+          sendToClient('USER_SPEECH_STARTED');
+        });
+
+        voiceAgentClient.on('user_transcript_delta', (ev) => {
+          sendToClient('USER_TRANSCRIPT_DELTA', { text: ev.text });
+        });
+
+        voiceAgentClient.on('user_transcript_final', (ev) => {
+          sendToClient('USER_TRANSCRIPT_FINAL', { text: ev.text });
+        });
+
+        voiceAgentClient.on('agent_reply_started', () => {
+          sendToClient('AGENT_REPLY_STARTED');
+        });
+
+        voiceAgentClient.on('agent_reply_audio', (ev) => {
+          // Stream 24kHz PCM16 audio to browser for instant speaker playback
+          sendToClient('AGENT_REPLY_AUDIO', {
+            audio: ev.data,
+            format: ev.format
+          });
+        });
+
+        voiceAgentClient.on('agent_transcript', (ev) => {
+          sendToClient('AGENT_TRANSCRIPT', { text: ev.text });
+        });
+
+        voiceAgentClient.on('agent_reply_done', (ev) => {
+          sendToClient('AGENT_REPLY_DONE', {
+            status: ev.status,
+            interrupted: ev.interrupted
+          });
+        });
+
+        voiceAgentClient.on('tool_executed', (ev) => {
+          sendToClient('TOOL_EXECUTED', {
+            name: ev.name,
+            args: ev.args,
+            result: ev.result
+          });
+          // Also sync any updated SOAP state
+          sendToClient('SOAP_UPDATE', {
+            currentSoap: clinicalEngine.soapNotes
+          });
+        });
+
+        voiceAgentClient.on('error', (err) => {
+          sendToClient('ERROR', { message: err.message });
+        });
+
+        await voiceAgentClient.connect();
+      }
+
+      else if (msg.action === 'STOP_VOICE_AGENT') {
+        if (voiceAgentClient) {
+          voiceAgentClient.disconnect();
+          voiceAgentClient = null;
+        }
+        sendToClient('VOICE_AGENT_STOPPED');
+      }
+
+      // --- VOICE COPILOT TEXT QUERY ---
       else if (msg.action === 'ASK_COPILOT') {
         const query = msg.query || '';
         const answer = clinicalEngine.answerClinicalQuery(query);
@@ -210,6 +319,10 @@ wss.on('connection', (clientWs) => {
     if (assemblyClient) {
       assemblyClient.disconnect();
       assemblyClient = null;
+    }
+    if (voiceAgentClient) {
+      voiceAgentClient.disconnect();
+      voiceAgentClient = null;
     }
   });
 });

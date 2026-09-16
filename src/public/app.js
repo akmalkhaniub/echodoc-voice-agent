@@ -21,6 +21,8 @@ class EchoDocApp {
     this.btnMicToggle = document.getElementById('btnMicToggle');
     this.micText = document.getElementById('micText');
     this.micIcon = document.getElementById('micIcon');
+    this.btnVoiceAgentToggle = document.getElementById('btnVoiceAgentToggle');
+    this.voiceAgentText = document.getElementById('voiceAgentText');
     this.btnSimulation = document.getElementById('btnSimulation');
     this.btnExport = document.getElementById('btnExport');
     this.btnBargeIn = document.getElementById('btnBargeIn');
@@ -34,6 +36,12 @@ class EchoDocApp {
     this.copilotForm = document.getElementById('copilotForm');
     this.copilotInput = document.getElementById('copilotInput');
     this.copilotAnswer = document.getElementById('copilotAnswer');
+
+    // Audio Playback Engine (24kHz for Voice Agent speech output)
+    this.playbackContext = null;
+    this.activeAudioSources = [];
+    this.nextPlayTime = 0;
+    this.isVoiceAgentActive = false;
 
     // SOAP quadrant containers
     this.soapSubjective = document.getElementById('soapSubjective');
@@ -97,6 +105,9 @@ class EchoDocApp {
 
   bindEvents() {
     this.btnMicToggle.addEventListener('click', () => this.toggleMicrophone());
+    if (this.btnVoiceAgentToggle) {
+      this.btnVoiceAgentToggle.addEventListener('click', () => this.toggleVoiceAgent());
+    }
     this.btnSimulation.addEventListener('click', () => this.startSimulation());
     this.btnExport.addEventListener('click', () => this.exportMarkdownNote());
     this.btnBargeIn.addEventListener('click', () => this.triggerBargeIn());
@@ -123,6 +134,55 @@ class EchoDocApp {
       case 'FINAL_TRANSCRIPT':
         this.partialBox.classList.add('hidden');
         this.appendTranscript(msg.text, msg.speaker || 'Clinician');
+        break;
+
+      // --- VOICE AGENT API EVENTS ---
+      case 'VOICE_AGENT_READY':
+        this.appendTranscript(`🎙️ Voice Agent session online (${msg.voice} voice). Speak directly into your microphone.`, 'System');
+        break;
+
+      case 'USER_SPEECH_STARTED':
+        // Immediate client-side barge-in interruption of agent speech
+        this.stopAudioPlayback();
+        this.partialBox.classList.remove('hidden');
+        this.partialText.innerText = 'Listening to speech...';
+        break;
+
+      case 'USER_TRANSCRIPT_DELTA':
+        this.partialBox.classList.remove('hidden');
+        this.partialText.innerText = msg.text;
+        break;
+
+      case 'USER_TRANSCRIPT_FINAL':
+        this.partialBox.classList.add('hidden');
+        this.appendTranscript(msg.text, 'Clinician');
+        break;
+
+      case 'AGENT_REPLY_STARTED':
+        this.partialBox.classList.remove('hidden');
+        this.partialText.innerText = 'EchoDoc speaking...';
+        break;
+
+      case 'AGENT_REPLY_AUDIO':
+        if (msg.audio) {
+          this.playPcmChunk(msg.audio, 24000);
+        }
+        break;
+
+      case 'AGENT_TRANSCRIPT':
+        this.partialBox.classList.add('hidden');
+        this.appendTranscript(msg.text, 'EchoDoc (Copilot)');
+        break;
+
+      case 'AGENT_REPLY_DONE':
+        this.partialBox.classList.add('hidden');
+        if (msg.interrupted) {
+          this.stopAudioPlayback();
+        }
+        break;
+
+      case 'TOOL_EXECUTED':
+        this.appendTranscript(`🛠️ Clinical Sentinel Executed: ${msg.name}`, 'System');
         break;
 
       case 'SOAP_UPDATE':
@@ -152,6 +212,7 @@ class EchoDocApp {
         break;
 
       case 'INTERRUPTED':
+        this.stopAudioPlayback();
         this.copilotAnswer.classList.remove('hidden');
         this.copilotAnswer.innerHTML = `<span class="text-red-400 font-bold">Interrupted (Barge-in):</span> Assistant audio halted.`;
         break;
@@ -367,6 +428,124 @@ class EchoDocApp {
 
     this.canvasCtx.lineTo(width, height / 2);
     this.canvasCtx.stroke();
+  }
+
+  async toggleVoiceAgent() {
+    if (this.isVoiceAgentActive) {
+      this.stopVoiceAgent();
+    } else {
+      await this.startVoiceAgent();
+    }
+  }
+
+  async startVoiceAgent() {
+    try {
+      if (this.isRecording) {
+        this.stopRecording();
+      }
+
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+      this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, sampleRate: 16000 } });
+      const source = this.audioContext.createMediaStreamSource(this.mediaStream);
+
+      this.processor = this.audioContext.createScriptProcessor(2048, 1, 1);
+      this.processor.onaudioprocess = (e) => {
+        if (!this.isVoiceAgentActive) return;
+        const inputData = e.inputBuffer.getChannelData(0);
+        const pcm16 = this.floatTo16BitPCM(inputData);
+
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          this.ws.send(pcm16);
+        }
+        this.drawWaveform(inputData);
+      };
+      source.connect(this.processor);
+      this.processor.connect(this.audioContext.destination);
+
+      this.isVoiceAgentActive = true;
+      if (this.voiceAgentText) this.voiceAgentText.innerText = 'Stop Voice Copilot';
+      if (this.btnVoiceAgentToggle) {
+        this.btnVoiceAgentToggle.classList.remove('bg-indigo-600', 'hover:bg-indigo-500');
+        this.btnVoiceAgentToggle.classList.add('bg-rose-600', 'hover:bg-rose-500');
+      }
+
+      if (this.ws) {
+        this.ws.send(JSON.stringify({ action: 'START_VOICE_AGENT', voice: 'anna' }));
+      }
+    } catch (err) {
+      alert('Microphone access failed: ' + err.message);
+    }
+  }
+
+  stopVoiceAgent() {
+    this.isVoiceAgentActive = false;
+    this.stopAudioPlayback();
+    if (this.processor) this.processor.disconnect();
+    if (this.mediaStream) this.mediaStream.getTracks().forEach(t => t.stop());
+    if (this.audioContext) this.audioContext.close();
+
+    if (this.voiceAgentText) this.voiceAgentText.innerText = 'Talk to Voice Copilot';
+    if (this.btnVoiceAgentToggle) {
+      this.btnVoiceAgentToggle.classList.add('bg-indigo-600', 'hover:bg-indigo-500');
+      this.btnVoiceAgentToggle.classList.remove('bg-rose-600', 'hover:bg-rose-500');
+    }
+
+    if (this.ws) {
+      this.ws.send(JSON.stringify({ action: 'STOP_VOICE_AGENT' }));
+    }
+    this.drawEmptyWaveform();
+  }
+
+  playPcmChunk(base64Data, sampleRate = 24000) {
+    try {
+      const binaryString = window.atob(base64Data);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const int16Array = new Int16Array(bytes.buffer);
+      const float32Array = new Float32Array(int16Array.length);
+      for (let i = 0; i < int16Array.length; i++) {
+        float32Array[i] = int16Array[i] / 32768;
+      }
+
+      if (!this.playbackContext || this.playbackContext.state === 'closed') {
+        this.playbackContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate });
+      }
+
+      const audioBuffer = this.playbackContext.createBuffer(1, float32Array.length, sampleRate);
+      audioBuffer.copyToChannel(float32Array, 0);
+
+      const source = this.playbackContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(this.playbackContext.destination);
+
+      const now = this.playbackContext.currentTime;
+      const startTime = Math.max(now, this.nextPlayTime || now);
+      source.start(startTime);
+      this.nextPlayTime = startTime + audioBuffer.duration;
+      this.activeAudioSources.push(source);
+
+      source.onended = () => {
+        const index = this.activeAudioSources.indexOf(source);
+        if (index > -1) this.activeAudioSources.splice(index, 1);
+      };
+    } catch (err) {
+      console.error('Audio chunk playback error:', err);
+    }
+  }
+
+  stopAudioPlayback() {
+    if (this.activeAudioSources && this.activeAudioSources.length > 0) {
+      this.activeAudioSources.forEach(s => {
+        try { s.stop(); } catch (_) {}
+      });
+      this.activeAudioSources = [];
+    }
+    if (this.playbackContext) {
+      this.nextPlayTime = this.playbackContext.currentTime;
+    }
   }
 
   async exportMarkdownNote() {

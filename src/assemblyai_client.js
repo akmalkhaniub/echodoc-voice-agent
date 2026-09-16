@@ -38,7 +38,11 @@ export class AssemblyAIStreamingClient extends EventEmitter {
       const v3Params = new URLSearchParams({
         sample_rate: this.sampleRate.toString(),
         encoding: 'pcm_s16le',
-        speech_model: this.speechModel
+        speech_model: this.speechModel,
+        mode: 'min_latency',
+        domain: 'medical-v1',
+        speaker_labels: 'true',
+        prompt: 'Clinical medical consultation between a doctor and patient regarding symptoms, diagnosis, vitals, and medications.'
       });
 
       if (this.token) {
@@ -55,7 +59,7 @@ export class AssemblyAIStreamingClient extends EventEmitter {
       this.ws = new WebSocket(v3Url, { headers });
 
       this.ws.on('open', () => {
-        console.log(`✅ [AssemblyAI Client] Connected to v3 streaming endpoint (${this.speechModel})`);
+        console.log(`✅ [AssemblyAI STT Client] Connected to v3 streaming endpoint (${this.speechModel}) [Medical Mode]`);
         this.isConnected = true;
         resolve();
       });
@@ -65,18 +69,18 @@ export class AssemblyAIStreamingClient extends EventEmitter {
           const response = JSON.parse(data.toString());
           this.handleIncomingMessage(response);
         } catch (err) {
-          console.error('❌ [AssemblyAI Client] Parse error:', err);
+          console.error('❌ [AssemblyAI STT Client] Parse error:', err);
         }
       });
 
       this.ws.on('error', (err) => {
-        console.error('❌ [AssemblyAI Client] WebSocket error:', err.message);
+        console.error('❌ [AssemblyAI STT Client] WebSocket error:', err.message);
         this.emit('error', err);
         reject(err);
       });
 
       this.ws.on('close', (code, reason) => {
-        console.log(`🔌 [AssemblyAI Client] Closed with code ${code}: ${reason}`);
+        console.log(`🔌 [AssemblyAI STT Client] Closed with code ${code}: ${reason}`);
         this.isConnected = false;
         this.emit('close', { code, reason });
       });
@@ -84,45 +88,67 @@ export class AssemblyAIStreamingClient extends EventEmitter {
   }
 
   /**
-   * Route incoming AssemblyAI frames to event emitters (handles both v3 and v2 shapes)
+   * Route incoming AssemblyAI v3 frames to event emitters
    */
   handleIncomingMessage(msg) {
-    // Session initialization
-    if (msg.message_type === 'SessionBegins' || msg.message_type === 'SessionBegin' || msg.type === 'SessionBegin') {
-      this.emit('session_begins', msg);
+    // 1. Session initialization
+    if (msg.type === 'Begin' || msg.message_type === 'SessionBegins') {
+      this.emit('session_begins', {
+        id: msg.id || msg.session_id,
+        expiresAt: msg.expires_at
+      });
     }
-    // Partial transcript / Interim turn
-    else if (msg.message_type === 'PartialTranscript' || (msg.type === 'Turn' && !msg.end_of_turn)) {
-      const text = msg.text || msg.transcript || '';
-      if (text.trim().length > 0) {
-        this.emit('partial_transcript', {
-          text,
-          confidence: msg.confidence || 0.95,
-          timestamp: Date.now()
-        });
-      }
+    // 2. Speech activity detected (VAD)
+    else if (msg.type === 'SpeechStarted') {
+      this.emit('speech_started', {
+        timestamp: msg.timestamp,
+        confidence: msg.confidence
+      });
     }
-    // Final transcript / Completed turn
-    else if (msg.message_type === 'FinalTranscript' || (msg.type === 'Turn' && msg.end_of_turn)) {
-      const text = msg.text || msg.transcript || '';
-      if (text.trim().length > 0) {
+    // 3. Turn events (Universal-3.5-Pro)
+    else if (msg.type === 'Turn') {
+      const text = msg.transcript || '';
+      if (msg.end_of_turn) {
+        // Finalized turn
         this.emit('final_transcript', {
           text,
-          confidence: msg.confidence || 0.98,
+          turnOrder: msg.turn_order,
           words: msg.words || [],
+          speaker: msg.speaker_label || 'Speaker',
+          confidence: msg.end_of_turn_confidence || 1.0,
+          utterance: msg.utterance,
           timestamp: Date.now()
         });
+      } else {
+        // Partial interim turn
+        if (text.trim().length > 0) {
+          this.emit('partial_transcript', {
+            text,
+            turnOrder: msg.turn_order,
+            confidence: 0.95,
+            timestamp: Date.now()
+          });
+        }
       }
     }
-    // Session Termination
-    else if (msg.message_type === 'SessionTerminated' || msg.type === 'SessionTerminated') {
-      this.emit('session_terminated', msg);
+    // 4. Diarization speaker refinement
+    else if (msg.type === 'SpeakerRevision') {
+      this.emit('speaker_revision', {
+        revisions: msg.revisions || []
+      });
+    }
+    // 5. Session termination
+    else if (msg.type === 'Termination' || msg.message_type === 'SessionTerminated') {
+      this.emit('session_terminated', {
+        audioDuration: msg.audio_duration_seconds,
+        sessionDuration: msg.session_duration_seconds
+      });
     }
   }
 
   /**
    * Stream raw 16kHz linear PCM audio buffer to AssemblyAI
-   * Supports both binary WebSocket frames and base64 JSON encapsulation
+   * Sends 50-1000ms chunks as binary WebSocket frames
    * @param {Buffer|Uint8Array} pcmBuffer 
    */
   sendAudio(pcmBuffer) {
@@ -134,24 +160,25 @@ export class AssemblyAIStreamingClient extends EventEmitter {
       return;
     }
 
-    // AssemblyAI v3 supports direct binary PCM16 transmission
     if (Buffer.isBuffer(pcmBuffer) || pcmBuffer instanceof Uint8Array) {
       this.ws.send(pcmBuffer);
     } else {
-      const base64Audio = Buffer.from(pcmBuffer).toString('base64');
-      this.ws.send(JSON.stringify({ audio_data: base64Audio }));
+      this.ws.send(Buffer.from(pcmBuffer));
     }
   }
 
   /**
    * Terminate session gracefully
+   * Sends { type: "Terminate" } to close the stream and avoid orphan billing
    */
   disconnect() {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       try {
-        this.ws.send(JSON.stringify({ terminate_session: true }));
+        this.ws.send(JSON.stringify({ type: 'Terminate' }));
       } catch (_) {}
-      this.ws.close();
+      setTimeout(() => {
+        try { this.ws.close(); } catch (_) {}
+      }, 500);
     }
     this.isConnected = false;
   }
