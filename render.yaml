@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: echodoc-voice-agent
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: MOCK_STREAMING
+        value: "false"
+      - key: ASSEMBLYAI_API_KEY
+        sync: false
+    healthCheckPath: /api/health
+    autoDeploy: true

@@ -14,7 +14,8 @@
     "deploy:aws": "sh deploy/aws/deploy.sh",
     "deploy:gcp": "sh deploy/gcp/deploy.sh",
     "deploy:azure": "sh deploy/azure/deploy.sh",
-    "deploy:k8s": "kubectl apply -k deploy/k8s/"
+    "deploy:k8s": "kubectl apply -k deploy/k8s/",
+    "tunnel": "powershell -ExecutionPolicy Bypass -File deploy/free/tunnel.ps1"
   },
   "dependencies": {
     "assemblyai": "^4.9.0",
