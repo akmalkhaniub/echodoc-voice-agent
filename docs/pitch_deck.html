@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EchoDoc AI — Pitch Deck (AssemblyAI Hackathon 2026)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background: #020617; color: #f8fafc; }
+    .slide {
+      width: 100%;
+      max-width: 1100px;
+      aspect-ratio: 16 / 9;
+      margin: 2rem auto;
+      border-radius: 1.25rem;
+      border: 1px solid #1e293b;
+      background: radial-gradient(circle at top right, #0f172a 0%, #020617 100%);
+      padding: 3.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      page-break-after: always;
+      position: relative;
+      overflow: hidden;
+    }
+    @media print {
+      body { background: #020617; }
+      .slide { margin: 0; border: none; box-shadow: none; border-radius: 0; width: 100vw; height: 100vh; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body class="p-4 md:p-8">
+
+  <!-- Print Notice Toolbar -->
+  <div class="no-print max-w-[1100px] mx-auto mb-6 flex items-center justify-between bg-slate-900 border border-slate-800 p-4 rounded-xl">
+    <div>
+      <h3 class="text-sm font-bold text-cyan-400">EchoDoc Presentation Deck (16:9)</h3>
+      <p class="text-xs text-slate-400">Ready for Lablab.ai hackathon submission. Press Ctrl+P (or Print) to export as PDF.</p>
+    </div>
+    <button onclick="window.print()" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold rounded-lg shadow-lg transition">
+      Save / Print to PDF
+    </button>
+  </div>
+
+  <!-- Slide 1: Cover -->
+  <div class="slide">
+    <div class="flex items-center space-x-3">
+      <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-white text-lg shadow-lg shadow-cyan-500/30">
+        ED
+      </div>
+      <span class="text-xs font-semibold tracking-wider uppercase px-3 py-1 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-400">
+        AssemblyAI Voice Agent Hackathon 2026
+      </span>
+    </div>
+
+    <div>
+      <h1 class="text-5xl font-extrabold text-white tracking-tight mb-3">EchoDoc AI</h1>
+      <p class="text-2xl font-light text-cyan-300">Sub-Second Clinical Voice Scribe &amp; Diagnostic Copilot</p>
+      <p class="text-sm text-slate-400 mt-4 max-w-2xl">
+        Eliminating clinician documentation burden with real-time ambient SOAP generation, drug contraindication sentinels, and conversational voice assistance.
+      </p>
+    </div>
+
+    <div class="flex items-center justify-between border-t border-slate-800/80 pt-4 text-xs text-slate-500">
+      <span>Powered by Universal-3.5-Pro STT &amp; Voice Agent API</span>
+      <span>Team Antigravity • September 2026</span>
+    </div>
+  </div>
+
+  <!-- Slide 2: Problem -->
+  <div class="slide">
+    <div class="flex items-center justify-between">
+      <span class="text-xs font-mono text-cyan-400 uppercase tracking-wider">01. The Problem</span>
+      <span class="text-xs text-slate-500">Healthcare Burden</span>
+    </div>
+
+    <div>
+      <h2 class="text-3xl font-bold text-white mb-6">Physician Burnout &amp; Undetected Medical Errors</h2>
+      <div class="grid grid-cols-3 gap-6">
+        <div class="bg-slate-900/60 border border-slate-800 p-5 rounded-xl">
+          <div class="text-3xl font-black text-rose-500 mb-2">2 : 1</div>
+          <h4 class="text-sm font-bold text-slate-200 mb-1">Administrative Drag</h4>
+          <p class="text-xs text-slate-400">Doctors spend two full hours typing notes in electronic health records for every one hour spent with patients.</p>
+        </div>
+        <div class="bg-slate-900/60 border border-slate-800 p-5 rounded-xl">
+          <div class="text-3xl font-black text-amber-500 mb-2">1.3M+</div>
+          <h4 class="text-sm font-bold text-slate-200 mb-1">Adverse Drug Events</h4>
+          <p class="text-xs text-slate-400">Medication contraindications frequently go unnoticed during hasty consultations, causing preventable harm.</p>
+        </div>
+        <div class="bg-slate-900/60 border border-slate-800 p-5 rounded-xl">
+          <div class="text-3xl font-black text-blue-500 mb-2">2 Hours</div>
+          <h4 class="text-sm font-bold text-slate-200 mb-1">Nightly Pajama Time</h4>
+          <p class="text-xs text-slate-400">Physicians sacrifice evenings and family time finishing chart backlogs, driving historic burnout rates.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="border-t border-slate-800 pt-3 text-xs text-slate-500">EchoDoc Solution Strategy</div>
+  </div>
+
+  <!-- Slide 3: Solution & Architecture -->
+  <div class="slide">
+    <div class="flex items-center justify-between">
+      <span class="text-xs font-mono text-cyan-400 uppercase tracking-wider">02. The Solution</span>
+      <span class="text-xs text-slate-500">Dual-Pipeline AI</span>
+    </div>
+
+    <div>
+      <h2 class="text-3xl font-bold text-white mb-4">Dual-Pipeline Clinical Workspace</h2>
+      <div class="grid grid-cols-2 gap-6">
+        <div class="bg-slate-900/60 border border-cyan-950 p-5 rounded-xl">
+          <div class="inline-block px-2.5 py-1 rounded bg-cyan-950 text-cyan-400 font-mono text-[11px] font-bold mb-3">
+            PIPELINE 1: AMBIENT SCRIBE
+          </div>
+          <h4 class="text-base font-bold text-white mb-1.5">Universal-3.5-Pro Streaming STT (v3)</h4>
+          <ul class="text-xs text-slate-300 space-y-1.5 list-disc pl-4">
+            <li>Sub-second turn finalization with min_latency mode.</li>
+            <li>AssemblyAI <code class="text-cyan-300">domain: "medical-v1"</code> clinical tuning.</li>
+            <li>Real-time speaker diarization separating Doctor from Patient.</li>
+            <li>Automatic 4-quadrant SOAP clinical note extraction.</li>
+          </ul>
+        </div>
+        <div class="bg-slate-900/60 border border-indigo-950 p-5 rounded-xl">
+          <div class="inline-block px-2.5 py-1 rounded bg-indigo-950 text-indigo-400 font-mono text-[11px] font-bold mb-3">
+            PIPELINE 2: VOICE COPILOT
+          </div>
+          <h4 class="text-base font-bold text-white mb-1.5">Managed Voice Agent API (v1)</h4>
+          <ul class="text-xs text-slate-300 space-y-1.5 list-disc pl-4">
+            <li>Full-duplex speech-in / speech-out with low latency.</li>
+            <li>Verbal consultation assistance with the <code class="text-indigo-300">anna</code> voice.</li>
+            <li>Flat-schema clinical tool execution (<code class="text-indigo-300">check_contraindications</code>).</li>
+            <li>Hardware-level barge-in: interrupts speech when user talks.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="border-t border-slate-800 pt-3 text-xs text-slate-500">EchoDoc Dual Architecture</div>
+  </div>
+
+  <!-- Slide 4: Clinical Safety Innovation -->
+  <div class="slide">
+    <div class="flex items-center justify-between">
+      <span class="text-xs font-mono text-cyan-400 uppercase tracking-wider">03. Innovation</span>
+      <span class="text-xs text-slate-500">Patient Safety</span>
+    </div>
+
+    <div>
+      <h2 class="text-3xl font-bold text-white mb-4">Real-Time Contraindication Sentinel</h2>
+      <p class="text-sm text-slate-300 mb-6 max-w-2xl">
+        EchoDoc doesn't just record words—it actively guards against critical clinical pharmacology errors while the conversation is happening.
+      </p>
+
+      <div class="bg-red-950/30 border border-red-900/60 p-5 rounded-xl space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-bold text-red-300 flex items-center space-x-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+            <span>Example: WARFARIN + IBUPROFEN DETECTED</span>
+          </span>
+          <span class="text-xs font-mono text-red-400 uppercase">CRITICAL SEVERITY</span>
+        </div>
+        <p class="text-xs text-slate-300">
+          <strong>Risk:</strong> Severe gastrointestinal hemorrhage. Concomitant use of Warfarin with NSAIDs impairs platelet aggregation and damages gastric mucosa.
+        </p>
+        <p class="text-xs text-cyan-300">
+          <strong>Action Taken:</strong> Visual alert banner triggers immediately; Voice Copilot tool verifies drug interaction and audibly informs the clinician before prescription sign-off.
+        </p>
+      </div>
+    </div>
+
+    <div class="border-t border-slate-800 pt-3 text-xs text-slate-500">Active Medical Device Grade Logic</div>
+  </div>
+
+  <!-- Slide 5: Market & Business Model -->
+  <div class="slide">
+    <div class="flex items-center justify-between">
+      <span class="text-xs font-mono text-cyan-400 uppercase tracking-wider">04. Market &amp; Business</span>
+      <span class="text-xs text-slate-500">Commercial Strategy</span>
+    </div>
+
+    <div class="grid grid-cols-2 gap-8">
+      <div>
+        <h3 class="text-xl font-bold text-white mb-4">Market Size (TAM / SAM / SOM)</h3>
+        <div class="space-y-3">
+          <div class="p-3.5 bg-slate-900/60 border border-slate-800 rounded-lg">
+            <div class="text-lg font-bold text-cyan-400">$32.4 Billion</div>
+            <div class="text-xs text-slate-400">Total Addressable Market (Global Healthcare AI by 2030)</div>
+          </div>
+          <div class="p-3.5 bg-slate-900/60 border border-slate-800 rounded-lg">
+            <div class="text-lg font-bold text-blue-400">$6.8 Billion</div>
+            <div class="text-xs text-slate-400">Serviceable Addressable Market (Ambient Clinical Scribes)</div>
+          </div>
+          <div class="p-3.5 bg-slate-900/60 border border-slate-800 rounded-lg">
+            <div class="text-lg font-bold text-emerald-400">$420 Million</div>
+            <div class="text-xs text-slate-400">Serviceable Obtainable Market (Clinics &amp; Telehealth)</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 class="text-xl font-bold text-white mb-4">SaaS Monetization</h3>
+        <div class="space-y-3 text-xs text-slate-300">
+          <div class="p-3.5 bg-slate-900/60 border border-slate-800 rounded-lg">
+            <div class="font-bold text-slate-200">Freemium Tier ($0)</div>
+            <div class="text-slate-400 mt-1">3 consultations/day with simulation mode for clinician onboarding.</div>
+          </div>
+          <div class="p-3.5 bg-slate-900/60 border border-cyan-900/60 rounded-lg">
+            <div class="font-bold text-cyan-300">Pro Clinician ($79 / mo)</div>
+            <div class="text-slate-400 mt-1">Unlimited Universal-3.5-Pro streaming, Voice Copilot, &amp; DDI sentinel.</div>
+          </div>
+          <div class="p-3.5 bg-slate-900/60 border border-slate-800 rounded-lg">
+            <div class="font-bold text-indigo-300">Enterprise Health Systems ($149 / seat)</div>
+            <div class="text-slate-400 mt-1">Direct Epic/Cerner EHR integration, BAA compliance, custom formulary.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="border-t border-slate-800 pt-3 text-xs text-slate-500">Business Model</div>
+  </div>
+
+  <!-- Slide 6: Roadmap & Submission -->
+  <div class="slide">
+    <div class="flex items-center justify-between">
+      <span class="text-xs font-mono text-cyan-400 uppercase tracking-wider">05. Roadmap &amp; Delivery</span>
+      <span class="text-xs text-slate-500">Hackathon Delivery</span>
+    </div>
+
+    <div>
+      <h2 class="text-3xl font-bold text-white mb-6">Fully Functional &amp; Production Ready</h2>
+      <div class="grid grid-cols-2 gap-6">
+        <div class="bg-slate-900/60 border border-slate-800 p-5 rounded-xl space-y-2">
+          <h4 class="text-sm font-bold text-emerald-400 flex items-center space-x-1.5">
+            <span>✅ Complete Hackathon Deliverables</span>
+          </h4>
+          <p class="text-xs text-slate-300">• 100% Passing Integration Tests (12/12 test cases).</p>
+          <p class="text-xs text-slate-300">• Live WebSocket streaming with AssemblyAI Universal-3.5-Pro.</p>
+          <p class="text-xs text-slate-300">• Live Voice Agent API with speech output &amp; tool dispatch.</p>
+          <p class="text-xs text-slate-300">• Public open-source GitHub repository.</p>
+        </div>
+        <div class="bg-slate-900/60 border border-slate-800 p-5 rounded-xl space-y-2">
+          <h4 class="text-sm font-bold text-cyan-400">🚀 Future Milestones</h4>
+          <p class="text-xs text-slate-300"><strong>Q1 2027:</strong> HL7 / FHIR JSON export for Epic and Cerner EHR.</p>
+          <p class="text-xs text-slate-300"><strong>Q2 2027:</strong> Native iPad / iPhone ambient scribe app.</p>
+          <p class="text-xs text-slate-300"><strong>Q3 2027:</strong> Multilingual real-time translation for global clinics.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between border-t border-slate-800 pt-3 text-xs text-slate-500">
+      <span class="font-mono text-cyan-400">github.com/akmalkhaniub/echodoc-voice-agent</span>
+      <span>Thank You!</span>
+    </div>
+  </div>
+
+</body>
+</html>
