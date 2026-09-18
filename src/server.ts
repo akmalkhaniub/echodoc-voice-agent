@@ -259,6 +259,13 @@ wss.on('connection', (clientWs: WebSocket) => {
       } else if (msg.action === 'ASK_COPILOT') {
         const query = msg.query || '';
         sendToClient('COPILOT_ANSWER', { query, answer: clinicalEngine.answerClinicalQuery(query), timestamp: new Date().toISOString() });
+      } else if (msg.action === 'EXPORT_NOTE') {
+        sendToClient('EXPORT_DATA', {
+          markdown: clinicalEngine.exportMarkdown({
+            patientName: msg.patientName,
+            physicianName: msg.physicianName
+          })
+        });
       } else if (msg.action === 'RUN_SIMULATION') {
         runClinicalSimulation(sendToClient, clinicalEngine);
       } else if (msg.action === 'INTERRUPT') {

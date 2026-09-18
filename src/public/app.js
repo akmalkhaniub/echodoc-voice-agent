@@ -37,6 +37,17 @@ class EchoDocApp {
     this.copilotInput = document.getElementById('copilotInput');
     this.copilotAnswer = document.getElementById('copilotAnswer');
 
+    // Latency HUD (turnaround + barge-in, with SLO coloring)
+    this.hudTurnaround = document.getElementById('hudTurnaround');
+    this.hudP95 = document.getElementById('hudP95');
+    this.hudBargeIn = document.getElementById('hudBargeIn');
+
+    // Reconnect backoff state
+    this.reconnectAttempts = 0;
+    this.reconnectTimer = null;
+    this.SLO_TURNAROUND_P95 = 1200;
+    this.SLO_BARGE_IN_P95 = 200;
+
     // Audio Playback Engine (24kHz for Voice Agent speech output)
     this.playbackContext = null;
     this.activeAudioSources = [];
@@ -68,6 +79,7 @@ class EchoDocApp {
 
     this.ws.onopen = () => {
       this.updateStatus('Connected', 'emerald');
+      this.reconnectAttempts = 0;
       console.log('✅ Connected to EchoDoc WebSocket');
     };
 
@@ -81,8 +93,13 @@ class EchoDocApp {
     };
 
     this.ws.onclose = () => {
-      this.updateStatus('Disconnected', 'red');
-      setTimeout(() => this.initWebSocket(), 3000);
+      // Exponential backoff with jitter, capped at 15s.
+      this.reconnectAttempts++;
+      const backoff = Math.min(15000, 500 * 2 ** (this.reconnectAttempts - 1));
+      const delay = backoff + Math.floor(Math.random() * 300);
+      this.updateStatus(`Reconnecting in ${Math.round(delay / 1000)}s…`, 'amber');
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = setTimeout(() => this.initWebSocket(), delay);
     };
 
     this.ws.onerror = (err) => {
@@ -214,9 +231,50 @@ class EchoDocApp {
       case 'INTERRUPTED':
         this.stopAudioPlayback();
         this.copilotAnswer.classList.remove('hidden');
-        this.copilotAnswer.innerHTML = `<span class="text-red-400 font-bold">Interrupted (Barge-in):</span> Assistant audio halted.`;
+        this.copilotAnswer.innerHTML = `<span class="text-red-400 font-bold">Interrupted (Barge-in):</span> Assistant audio halted${
+          typeof msg.haltMs === 'number' ? ` in ${msg.haltMs}ms` : ''
+        }.`;
+        if (msg.summary) this.renderLatencyHud(null, msg.summary);
+        break;
+
+      case 'LATENCY':
+        this.renderLatencyHud(msg.summary, null, msg.turnaroundMs);
+        break;
+
+      case 'EXPORT_DATA':
+        this.downloadMarkdown(msg.markdown);
         break;
     }
+  }
+
+  renderLatencyHud(turnaroundSummary, bargeInSummary, lastTurnaround) {
+    const fmt = (v) => (typeof v === 'number' ? `${v}ms` : '—');
+    if (this.hudTurnaround && typeof lastTurnaround === 'number') {
+      this.hudTurnaround.innerText = fmt(lastTurnaround);
+    }
+    if (this.hudP95 && turnaroundSummary) {
+      this.hudP95.innerText = fmt(turnaroundSummary.p95);
+      const ok = turnaroundSummary.p95 > 0 && turnaroundSummary.p95 <= this.SLO_TURNAROUND_P95;
+      this.hudP95.className = `font-mono font-bold ${ok ? 'text-emerald-400' : 'text-amber-400'}`;
+    }
+    if (this.hudBargeIn && bargeInSummary) {
+      this.hudBargeIn.innerText = fmt(bargeInSummary.p95);
+      const ok = bargeInSummary.p95 > 0 && bargeInSummary.p95 <= this.SLO_BARGE_IN_P95;
+      this.hudBargeIn.className = `font-mono font-bold ${ok ? 'text-emerald-400' : 'text-amber-400'}`;
+    }
+  }
+
+  downloadMarkdown(markdown) {
+    if (!markdown) return;
+    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `SOAP_Note_${new Date().toISOString().split('T')[0]}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   appendTranscript(text, speaker) {
@@ -548,23 +606,13 @@ class EchoDocApp {
     }
   }
 
-  async exportMarkdownNote() {
-    try {
-      const res = await fetch('/api/export');
-      const markdown = await res.text();
-
-      const blob = new Blob([markdown], { type: 'text/markdown' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `SOAP_Note_${new Date().toISOString().split('T')[0]}.md`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      alert('Failed exporting note: ' + err.message);
+  exportMarkdownNote() {
+    // SOAP state lives per-connection on the server, so request it over the socket.
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      alert('Not connected — cannot export yet.');
+      return;
     }
+    this.ws.send(JSON.stringify({ action: 'EXPORT_NOTE' }));
   }
 }
 
