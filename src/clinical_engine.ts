@@ -6,8 +6,44 @@
  * 3. Conversational clinical queries and verbal assistance
  */
 
+export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM';
+export type SoapSection = 'subjective' | 'objective' | 'assessment' | 'plan';
+
+export interface ContraindicationRule {
+  drugA: string;
+  drugB: string[];
+  severity: Severity;
+  warning: string;
+}
+
+export interface SafetyAlert {
+  key?: string;
+  severity: Severity;
+  title: string;
+  description: string;
+  detectedAt?: string;
+}
+
+export interface SoapNotes {
+  subjective: string[];
+  objective: string[];
+  assessment: string[];
+  plan: string[];
+}
+
+export interface UtteranceUpdate {
+  newSoapItems: Array<{ section: SoapSection; text: string }>;
+  newAlerts: SafetyAlert[];
+}
+
+export interface ExportMetadata {
+  date?: string;
+  patientName?: string;
+  physicianName?: string;
+}
+
 // Critical contraindication database for real-time safety warnings
-const CONTRAINDICATION_RULES = [
+const CONTRAINDICATION_RULES: ContraindicationRule[] = [
   {
     drugA: 'warfarin',
     drugB: ['aspirin', 'ibuprofen', 'naproxen', 'nsaid', 'meloxicam'],
@@ -47,41 +83,30 @@ const CONTRAINDICATION_RULES = [
 ];
 
 export class ClinicalEngine {
+  soapNotes: SoapNotes;
+  detectedDrugs: Set<string>;
+  activeSafetyAlerts: SafetyAlert[];
+  transcriptHistory: Array<{ speaker: string; text: string; timestamp: string }>;
+
   constructor() {
-    this.soapNotes = {
-      subjective: [],
-      objective: [],
-      assessment: [],
-      plan: []
-    };
+    this.soapNotes = { subjective: [], objective: [], assessment: [], plan: [] };
     this.detectedDrugs = new Set();
     this.activeSafetyAlerts = [];
     this.transcriptHistory = [];
   }
 
-  /**
-   * Reset session state for a fresh consultation
-   */
-  reset() {
-    this.soapNotes = {
-      subjective: [],
-      objective: [],
-      assessment: [],
-      plan: []
-    };
+  /** Reset session state for a fresh consultation */
+  reset(): void {
+    this.soapNotes = { subjective: [], objective: [], assessment: [], plan: [] };
     this.detectedDrugs.clear();
     this.activeSafetyAlerts = [];
     this.transcriptHistory = [];
   }
 
-  /**
-   * Check a list of drugs against contraindication rules
-   * @param {string[]} drugList 
-   * @returns {Array} List of matched safety alerts
-   */
-  checkDrugs(drugList = []) {
-    const list = drugList.map(d => d.toLowerCase().trim());
-    const alerts = [];
+  /** Check a list of drugs against contraindication rules */
+  checkDrugs(drugList: string[] = []): SafetyAlert[] {
+    const list = drugList.map((d) => d.toLowerCase().trim());
+    const alerts: SafetyAlert[] = [];
     for (const rule of CONTRAINDICATION_RULES) {
       if (list.includes(rule.drugA)) {
         for (const drugB of rule.drugB) {
@@ -98,13 +123,8 @@ export class ClinicalEngine {
     return alerts;
   }
 
-  /**
-   * Process a finalized transcript segment from AssemblyAI
-   * @param {string} text 
-   * @param {string} speaker 
-   * @returns {Object} updates to SOAP notes and safety alerts
-   */
-  processUtterance(text, speaker = 'Doctor') {
+  /** Process a finalized transcript segment from AssemblyAI */
+  processUtterance(text: unknown, speaker = 'Doctor'): UtteranceUpdate | null {
     if (!text || typeof text !== 'string') return null;
     const cleanText = text.trim();
     if (!cleanText) return null;
@@ -112,16 +132,13 @@ export class ClinicalEngine {
     this.transcriptHistory.push({ speaker, text: cleanText, timestamp: new Date().toISOString() });
 
     const lower = cleanText.toLowerCase();
-    const updates = {
-      newSoapItems: [],
-      newAlerts: []
-    };
+    const updates: UtteranceUpdate = { newSoapItems: [], newAlerts: [] };
 
-    // 1. Extract Subjective cues (symptoms, complaints, duration, history)
+    // 1. Subjective cues (symptoms, complaints, duration, history)
     const subjectivePatterns = [
       /(?:patient (?:complains of|reports|experiences|describes)|states that|feeling|felt|pain in|severe headache|chest pain|cough|fever|nausea|shortness of breath|dizziness|fatigue|symptoms started|for the past \w+)/i
     ];
-    if (subjectivePatterns.some(p => p.test(cleanText))) {
+    if (subjectivePatterns.some((p) => p.test(cleanText))) {
       const entry = `• ${cleanText.replace(/^(patient|he|she)\s+/i, '')}`;
       if (!this.soapNotes.subjective.includes(entry)) {
         this.soapNotes.subjective.push(entry);
@@ -129,13 +146,13 @@ export class ClinicalEngine {
       }
     }
 
-    // 2. Extract Objective cues (vitals, measurements, physical exam, labs)
+    // 2. Objective cues (vitals, measurements, physical exam, labs)
     const objectivePatterns = [
       /(?:blood pressure|bp is|heart rate|bpm|temperature|pulse is|oxygen saturation|spo2|physical exam|lungs are|auscultation|clear to auscultation|abdomen is|edema|weight is|scale reads|reflexes|eeg|ekg|mri|ct scan)/i,
-      /\b\d{2,3}\/\d{2,3}\b/, // e.g. 120/80
+      /\b\d{2,3}\/\d{2,3}\b/,
       /\b\d{2,3}\s*(?:bpm|mmhg|kg|lbs|%)\b/i
     ];
-    if (objectivePatterns.some(p => p.test(cleanText))) {
+    if (objectivePatterns.some((p) => p.test(cleanText))) {
       const entry = `• ${cleanText}`;
       if (!this.soapNotes.objective.includes(entry)) {
         this.soapNotes.objective.push(entry);
@@ -143,11 +160,11 @@ export class ClinicalEngine {
       }
     }
 
-    // 3. Extract Assessment cues (diagnoses, differential findings)
+    // 3. Assessment cues (diagnoses, differential findings)
     const assessmentPatterns = [
       /(?:assessment is|diagnosed with|differential diagnosis|impression is|suspect|likely suffering from|consistent with|hypertension|type 2 diabetes|pneumonia|bronchitis|angina|migraine|atrial fibrillation|hyperlipidemia|tendonitis)/i
     ];
-    if (assessmentPatterns.some(p => p.test(cleanText))) {
+    if (assessmentPatterns.some((p) => p.test(cleanText))) {
       const entry = `• ${cleanText.replace(/^(my assessment is|impression is)\s*/i, '')}`;
       if (!this.soapNotes.assessment.includes(entry)) {
         this.soapNotes.assessment.push(entry);
@@ -155,11 +172,11 @@ export class ClinicalEngine {
       }
     }
 
-    // 4. Extract Plan cues (medications, dosing, referrals, follow-up)
+    // 4. Plan cues (medications, dosing, referrals, follow-up)
     const planPatterns = [
       /(?:prescribe|start on|order|recommend|take|mg daily|bid|tid|follow up in|schedule an?|refer to|lifestyle modifications|counsel on)/i
     ];
-    if (planPatterns.some(p => p.test(cleanText))) {
+    if (planPatterns.some((p) => p.test(cleanText))) {
       const entry = `• ${cleanText.replace(/^(let's|i will|we will)\s*/i, '')}`;
       if (!this.soapNotes.plan.includes(entry)) {
         this.soapNotes.plan.push(entry);
@@ -176,20 +193,17 @@ export class ClinicalEngine {
     ];
 
     for (const drug of commonDrugs) {
-      if (lower.includes(drug)) {
-        this.detectedDrugs.add(drug);
-      }
+      if (lower.includes(drug)) this.detectedDrugs.add(drug);
     }
 
-    // Evaluate active drug contraindications
     for (const rule of CONTRAINDICATION_RULES) {
       if (this.detectedDrugs.has(rule.drugA)) {
         for (const drugB of rule.drugB) {
           if (this.detectedDrugs.has(drugB)) {
             const alertKey = `${rule.drugA}_${drugB}`;
-            const exists = this.activeSafetyAlerts.some(a => a.key === alertKey);
+            const exists = this.activeSafetyAlerts.some((a) => a.key === alertKey);
             if (!exists) {
-              const alert = {
+              const alert: SafetyAlert = {
                 key: alertKey,
                 severity: rule.severity,
                 title: `Contraindicated Pair: ${rule.drugA.toUpperCase()} + ${drugB.toUpperCase()}`,
@@ -207,56 +221,41 @@ export class ClinicalEngine {
     return updates;
   }
 
-  /**
-   * Handle an interactive verbal query from the doctor
-   * (e.g. "What was the blood pressure reading?" or "Any contraindications?")
-   * @param {string} query 
-   * @returns {string} concise clinical verbal response
-   */
-  answerClinicalQuery(query) {
+  /** Handle an interactive verbal query from the doctor */
+  answerClinicalQuery(query: string): string {
     const q = query.toLowerCase();
 
     if (q.includes('blood pressure') || q.includes('bp') || q.includes('vitals')) {
-      const objItems = this.soapNotes.objective;
-      const bp = objItems.find(item => item.toLowerCase().includes('pressure') || item.includes('/'));
-      if (bp) {
-        return `The recorded blood pressure is ${bp.replace('•', '').trim()}.`;
-      }
-      return "No blood pressure reading has been dictated in the objective notes yet.";
+      const bp = this.soapNotes.objective.find(
+        (item) => item.toLowerCase().includes('pressure') || item.includes('/')
+      );
+      if (bp) return `The recorded blood pressure is ${bp.replace('•', '').trim()}.`;
+      return 'No blood pressure reading has been dictated in the objective notes yet.';
     }
 
     if (q.includes('contraindication') || q.includes('interaction') || q.includes('safety') || q.includes('alert')) {
       if (this.activeSafetyAlerts.length === 0) {
-        return "No adverse drug interactions or contraindications have been detected so far.";
+        return 'No adverse drug interactions or contraindications have been detected so far.';
       }
       const first = this.activeSafetyAlerts[0];
       return `Warning: ${first.title}. ${first.description}`;
     }
 
     if (q.includes('medication') || q.includes('drug') || q.includes('prescribe')) {
-      if (this.detectedDrugs.size === 0) {
-        return "No medications have been registered in this encounter yet.";
-      }
-      const drugs = Array.from(this.detectedDrugs).join(', ');
-      return `Current medications identified in this session: ${drugs}.`;
+      if (this.detectedDrugs.size === 0) return 'No medications have been registered in this encounter yet.';
+      return `Current medications identified in this session: ${Array.from(this.detectedDrugs).join(', ')}.`;
     }
 
     if (q.includes('plan') || q.includes('next step')) {
-      if (this.soapNotes.plan.length === 0) {
-        return "The treatment plan has not been finalized yet.";
-      }
+      if (this.soapNotes.plan.length === 0) return 'The treatment plan has not been finalized yet.';
       return `Treatment plan summary: ${this.soapNotes.plan.join('; ').replace(/•/g, '')}`;
     }
 
-    return "Clinical copilot active. Listening to consultation and updating SOAP note in real-time.";
+    return 'Clinical copilot active. Listening to consultation and updating SOAP note in real-time.';
   }
 
-  /**
-   * Export the completed clinical consultation as formatted Markdown
-   * @param {Object} metadata 
-   * @returns {string} Formatted clinical Markdown note
-   */
-  exportMarkdown(metadata = {}) {
+  /** Export the completed clinical consultation as formatted Markdown */
+  exportMarkdown(metadata: ExportMetadata = {}): string {
     const date = metadata.date || new Date().toLocaleString();
     const patientName = metadata.patientName || 'Anonymous Patient';
     const physicianName = metadata.physicianName || 'Attending Physician';
@@ -276,28 +275,28 @@ export class ClinicalEngine {
     }
 
     md += `### S — Subjective\n`;
-    md += this.soapNotes.subjective.length > 0 
+    md += this.soapNotes.subjective.length > 0
       ? this.soapNotes.subjective.join('\n') + '\n\n'
       : '_No subjective complaints documented._\n\n';
 
     md += `### O — Objective\n`;
-    md += this.soapNotes.objective.length > 0 
+    md += this.soapNotes.objective.length > 0
       ? this.soapNotes.objective.join('\n') + '\n\n'
       : '_No objective examination findings documented._\n\n';
 
     md += `### A — Assessment\n`;
-    md += this.soapNotes.assessment.length > 0 
+    md += this.soapNotes.assessment.length > 0
       ? this.soapNotes.assessment.join('\n') + '\n\n'
       : '_No formal diagnostic impression recorded._\n\n';
 
     md += `### P — Plan\n`;
-    md += this.soapNotes.plan.length > 0 
+    md += this.soapNotes.plan.length > 0
       ? this.soapNotes.plan.join('\n') + '\n\n'
       : '_No treatment plan recorded._\n\n';
 
     md += `### Verified Active Medications\n`;
     if (this.detectedDrugs.size > 0) {
-      md += Array.from(this.detectedDrugs).map(d => `- ${d.toUpperCase()}`).join('\n') + '\n\n';
+      md += Array.from(this.detectedDrugs).map((d) => `- ${d.toUpperCase()}`).join('\n') + '\n\n';
     } else {
       md += `_None noted._\n\n`;
     }

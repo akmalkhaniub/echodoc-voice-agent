@@ -1,15 +1,52 @@
 # 🩺 EchoDoc — Real-Time Clinical Voice Scribe & Diagnostic Copilot
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Node.js: v24](https://img.shields.io/badge/Node.js-v24.x-brightgreen.svg)](https://nodejs.org)
+[![Node.js: v18+](https://img.shields.io/badge/Node.js-v18%2B-brightgreen.svg)](https://nodejs.org)
+[![TypeScript: strict](https://img.shields.io/badge/TypeScript-strict-3178c6.svg)](https://www.typescriptlang.org)
 [![AssemblyAI: v3 Streaming](https://img.shields.io/badge/AssemblyAI-Universal--3.5--Pro-purple.svg)](https://www.assemblyai.com)
 [![Web Audio: AudioWorklet](https://img.shields.io/badge/WebAudio-AudioWorklet-orange.svg)](https://developer.mozilla.org/en-US/docs/Web/API/AudioWorklet)
-[![Tests: 100% Passing](https://img.shields.io/badge/Tests-7%2F7%20Passed-emerald.svg)](./test)
+[![Tests: Offline suite passing](https://img.shields.io/badge/Tests-offline%20suite%20passing-emerald.svg)](./test)
 
 > **Built for the [AssemblyAI Voice Agent Hackathon (Lablab.ai)](https://lablab.ai/event/assemblyai-voice-agent)**  
 > *Submission Deadline: September 30, 2026*
 
 EchoDoc is an ultra-low-latency, real-time clinical voice copilot engineered for physicians during live patient encounters. Built on the **AssemblyAI v3 Streaming WebSocket protocol (`universal-3-5-pro`)** and **Web Audio `AudioWorkletProcessor`**, EchoDoc continuously streams ambient 16kHz linear PCM audio, generates progressive clinical SOAP notes live, continuously monitors for severe drug-drug contraindications (e.g., Warfarin + NSAIDs), and provides instant verbal Copilot answers with zero-latency barge-in support.
+
+---
+
+## ✅ Implementation Status (honest snapshot, 2026-09-18)
+
+| Area | Status | Notes |
+| :--- | :--- | :--- |
+| AssemblyAI v3 Streaming STT (WSS) | **Real** | Live `wss://streaming.assemblyai.com/v3/ws`, medical domain + word boost; falls back to a local simulator when no key. |
+| AssemblyAI Voice Agent API | **Real** | Live `wss://agents.assemblyai.com/v1/ws` with session config + tool calling; mock fallback. |
+| Ephemeral token minting | **Real** | Server-side `/api/token` + `/api/token/agent`; API key never sent to the browser. |
+| Clinical SOAP extraction + drug-interaction sentinel | **Real (rule-based)** | Deterministic regex/keyword extraction and a curated contraindication table — not an LLM diagnosis. **Not a medical device; demo only.** |
+| Conversational LLM reasoning / TTS streaming | **Delegated to the Voice Agent API** | EchoDoc does not run its own LLM/TTS; those live inside AssemblyAI's managed agent. |
+| Web UI | **Static HTML/JS** (not Next.js) | Single-page mission-control dashboard in `src/public/`. |
+
+**Runs with no API key:** set nothing (or `MOCK_STREAMING=true`) and the app runs in local simulator mode so the full UX is demoable offline.
+
+> ⚠️ **Safety:** EchoDoc is a hackathon prototype for demonstration. It is **not** a certified medical device and must not be used for real clinical decisions.
+
+## 🧪 Testing
+
+This project is written in **TypeScript** (strict mode). Sources live in `src/*.ts`;
+the browser assets in `src/public/` stay as plain JS.
+
+```bash
+npm install
+npm run typecheck      # tsc --noEmit over src + test
+npm run build          # compile to dist/ and bundle public assets
+npm start              # run the compiled server (dist/server.js)
+npm run dev            # run from source with tsx watch
+
+npm run test:offline   # deterministic, no network, no key (sim + 20 unit assertions)
+npm run test:live      # exercises live AssemblyAI endpoints; auto-skips without a key
+npm test               # typecheck + offline suite + live suite (live auto-skips)
+```
+
+CI (`.github/workflows/ci.yml`) typechecks, builds, and runs the offline suite on Node 18/20/22 on every push and PR.
 
 ---
 
@@ -47,7 +84,7 @@ Replaces deprecated `ScriptProcessorNode` with modern Web Audio `AudioWorkletPro
 Directly streams to `wss://streaming.assemblyai.com/v3/ws` with `speech_model=universal-3-5-pro` and specialized medical vocabulary boosts (e.g., *warfarin, lisinopril, sildenafil, nitroglycerin, hypertension*).
 
 ### 3. Ephemeral Client Token Authentication (`/api/token`)
-Issues short-lived streaming tokens via AssemblyAI token endpoint (`POST /v2/realtime/token`), keeping production API keys securely protected on the server side.
+Issues short-lived streaming tokens via the AssemblyAI v3 token endpoint (`GET https://streaming.assemblyai.com/v3/token`) and Voice Agent token endpoint (`GET https://agents.assemblyai.com/v1/token`), keeping the production API key on the server. On upstream failure the endpoint propagates the real error status instead of returning a fake token.
 
 ### 4. Real-Time Clinical Sentinel & Drug Contraindications
 Instantly analyzes doctor-patient speech. Flagging dangerous combinations (e.g., **Warfarin + Ibuprofen** hemorrhage risks) within milliseconds before a prescription is written.

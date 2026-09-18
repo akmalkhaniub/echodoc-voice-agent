@@ -1,6 +1,8 @@
 # Technical Specification: EchoDoc
 **Project Name:** EchoDoc (AssemblyAI Voice Agent Hackathon)  
-**Status:** Ready for Implementation  
+**Status:** Prototype implemented — spec is target design (updated 2026-09-18)  
+
+> **Implementation status (2026-09-18):** Strongest project in the set. Built: real AssemblyAI v3 streaming WebSocket STT (with a mock fallback), 16kHz PCM audio worklet, client-side barge-in, clinical SOAP extraction, and a mock drug-interaction tool (1,813 LOC, 2 passing test files). Partial: LLM reasoning and TTS streaming are wired with mock/stand-in backends. Not yet: the UI is a static HTML/Tailwind dashboard (not Next.js), and the live consultation + demo video + Lablab.ai submission are pending.
 **Version:** 1.0.0  
 
 ---
