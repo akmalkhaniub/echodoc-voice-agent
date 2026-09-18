@@ -59,7 +59,7 @@ export class AssemblyAIStreamingClient extends EventEmitter {
   /** Connect to AssemblyAI Streaming WebSocket */
   async connect(): Promise<void> {
     if (this.isMock) {
-      console.log('⚡ [AssemblyAI Client] Running in Mock/Simulator Mode (Universal-3.5-Pro emulation)');
+      log.info('stt_mock_mode');
       this.isConnected = true;
       this.emit('open', { sessionId: 'mock-session-' + Date.now(), isMock: true });
       return;
@@ -94,7 +94,7 @@ export class AssemblyAIStreamingClient extends EventEmitter {
       }, this.connectTimeoutMs);
 
       this.ws.on('open', () => {
-        console.log(`✅ [AssemblyAI STT Client] Connected to v3 streaming endpoint (${this.speechModel}) [Medical Mode]`);
+        log.info('stt_connected', { speechModel: this.speechModel });
         this.isConnected = true;
         if (settled) return;
         settled = true;
@@ -106,12 +106,12 @@ export class AssemblyAIStreamingClient extends EventEmitter {
         try {
           this.handleIncomingMessage(JSON.parse(data.toString()));
         } catch (err) {
-          console.error('❌ [AssemblyAI STT Client] Parse error:', err);
+          log.error('stt_parse_error', { message: (err as Error).message });
         }
       });
 
       this.ws.on('error', (err: Error) => {
-        console.error('❌ [AssemblyAI STT Client] WebSocket error:', err.message);
+        log.error('stt_ws_error', { message: err.message });
         this.emit('error', err);
         if (settled) return;
         settled = true;

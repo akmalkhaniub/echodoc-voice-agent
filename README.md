@@ -46,7 +46,34 @@ npm run test:live      # exercises live AssemblyAI endpoints; auto-skips without
 npm test               # typecheck + offline suite + live suite (live auto-skips)
 ```
 
-CI (`.github/workflows/ci.yml`) typechecks, builds, and runs the offline suite on Node 18/20/22 on every push and PR.
+`npm run verify` runs the full gate (typecheck + offline tests + build). The CI workflow
+lives at `ci/ci.workflow.yml` (move it to `.github/workflows/ci.yml` once your push token
+has the GitHub `workflow` scope) and runs typecheck + build + offline suite on Node 18/20/22.
+
+## 📊 Observability & latency SLOs
+
+The voice loop is instrumented for the metric that decides a real-time agent — turnaround
+(user stop → first agent audio) and barge-in (user speech → playback halt):
+
+- Live **latency HUD** in the header (turnaround / p95 / barge-in), colored against the SLO.
+- `GET /api/metrics` → `{ turnaroundMs, bargeInMs, slo }` with p50/p95/min/max/mean.
+- `GET /api/health` includes the same latency block.
+- **SLO targets:** turnaround **p95 < 1200 ms**, barge-in **p95 < 200 ms**.
+- Structured JSON logs (`LOG_JSON=true` / `NODE_ENV=production`); `LOG_LEVEL` gates verbosity.
+- Both upstream WebSocket clients auto-reconnect with capped exponential backoff.
+
+## 🚀 Deploy
+
+Container-first; the multi-stage `Dockerfile` compiles TS → `dist` and ships a minimal
+runtime with a `/api/health` HEALTHCHECK.
+
+```bash
+# Fly.io (config in fly.toml)
+fly launch --copy-config --no-deploy && fly secrets set ASSEMBLYAI_API_KEY=... && fly deploy
+# Render (render.yaml): connect the repo; set ASSEMBLYAI_API_KEY in the dashboard
+```
+
+Set `ASSEMBLYAI_API_KEY` as a secret; leave it unset to run the built-in simulator.
 
 ---
 

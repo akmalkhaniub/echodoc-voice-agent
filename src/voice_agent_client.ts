@@ -64,7 +64,7 @@ export class AssemblyAIVoiceAgentClient extends EventEmitter {
   /** Connect and initialize Voice Agent session */
   async connect(): Promise<void> {
     if (this.isMock) {
-      console.log('⚡ [Voice Agent Client] Running in Mock Mode');
+      log.info('agent_mock_mode');
       this.isConnected = true;
       this.isReady = true;
       this.sessionId = 'mock-agent-' + Date.now();
@@ -100,7 +100,7 @@ export class AssemblyAIVoiceAgentClient extends EventEmitter {
       };
 
       this.ws.on('open', () => {
-        console.log('✅ [Voice Agent Client] WebSocket connected, sending session.update...');
+        log.info('agent_ws_open');
         this.isConnected = true;
         this.sendSessionUpdate();
       });
@@ -109,12 +109,12 @@ export class AssemblyAIVoiceAgentClient extends EventEmitter {
         try {
           this.handleIncomingEvent(JSON.parse(data.toString()), resolveOnce);
         } catch (err) {
-          console.error('❌ [Voice Agent Client] JSON parse error:', err);
+          log.error('agent_parse_error', { message: (err as Error).message });
         }
       });
 
       this.ws.on('error', (err: Error) => {
-        console.error('❌ [Voice Agent Client] WebSocket error:', err.message);
+        log.error('agent_ws_error', { message: err.message });
         this.emit('error', err);
         if (settled) return;
         settled = true;
@@ -217,7 +217,7 @@ export class AssemblyAIVoiceAgentClient extends EventEmitter {
     if (event.type === 'session.ready') {
       this.sessionId = event.session_id;
       this.isReady = true;
-      console.log(`🎉 [Voice Agent Client] Session ready: ${this.sessionId}`);
+      log.info('agent_session_ready', { sessionId: this.sessionId });
       this.emit('session_ready', { sessionId: this.sessionId });
       resolveConnect?.();
     } else if (event.type === 'input.speech.started') {
@@ -242,7 +242,7 @@ export class AssemblyAIVoiceAgentClient extends EventEmitter {
   /** Execute a flat-schema tool call and send tool.result back to AssemblyAI */
   async executeToolCall(toolCall: ToolCall): Promise<void> {
     const { call_id, name, arguments: args } = toolCall;
-    console.log(`🛠️ [Voice Agent Client] Tool Call received: ${name}`, args);
+    log.info('agent_tool_call', { name, args });
 
     let result: Record<string, any> = { status: 'success' };
 
@@ -272,14 +272,14 @@ export class AssemblyAIVoiceAgentClient extends EventEmitter {
         }
       }
 
-      console.log(`✅ [Voice Agent Client] Sending tool.result for ${name}:`, result);
+      log.debug('agent_tool_result', { name });
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
         this.ws.send(JSON.stringify({ type: 'tool.result', call_id, result: JSON.stringify(result) }));
       }
       this.emit('tool_executed', { name, args, result });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error(`❌ [Voice Agent Client] Tool execution error for ${name}:`, err);
+      log.error('agent_tool_error', { name, message: (err as Error).message });
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
         this.ws.send(JSON.stringify({ type: 'tool.result', call_id, result: JSON.stringify({ error: message }) }));
       }

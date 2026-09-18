@@ -149,7 +149,7 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocketServer({ server, path: '/ws' });
 
 wss.on('connection', (clientWs: WebSocket) => {
-  console.log('🔗 [Server] Web Client connected to /ws');
+  log.info('ws_client_connected');
 
   // Per-connection clinical state so concurrent consultations never collide.
   const clinicalEngine = new ClinicalEngine();
@@ -276,12 +276,12 @@ wss.on('connection', (clientWs: WebSocket) => {
         sendToClient('INTERRUPTED', { message: 'Assistant voice playback halted immediately (barge-in).' });
       }
     } catch (err) {
-      console.error('❌ [Server] Failed processing client message:', err);
+      log.error('ws_message_failed', { message: (err as Error).message });
     }
   });
 
   clientWs.on('close', () => {
-    console.log('🔌 [Server] Web Client disconnected');
+    log.info('ws_client_disconnected');
     if (assemblyClient) { assemblyClient.disconnect(); assemblyClient = null; }
     if (voiceAgentClient) { voiceAgentClient.disconnect(); voiceAgentClient = null; }
   });

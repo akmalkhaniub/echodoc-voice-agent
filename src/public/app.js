@@ -244,6 +244,20 @@ class EchoDocApp {
       case 'EXPORT_DATA':
         this.downloadMarkdown(msg.markdown);
         break;
+
+      case 'RECONNECTING':
+        this.updateStatus(`Reconnecting ${msg.scope || ''} (try ${msg.attempt})…`, 'amber');
+        break;
+
+      case 'RECONNECTED':
+        this.updateStatus('Connected', 'emerald');
+        this.appendTranscript(`🔄 ${msg.scope === 'agent' ? 'Voice agent' : 'Transcription'} stream reconnected.`, 'System');
+        break;
+
+      case 'ERROR':
+        console.error('Server error:', msg.message);
+        this.appendTranscript(`⚠️ ${msg.message}`, 'System');
+        break;
     }
   }
 

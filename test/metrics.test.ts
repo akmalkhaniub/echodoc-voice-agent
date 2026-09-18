@@ -1,5 +1,6 @@
 import assert from 'assert';
 import { LatencyTracker, TurnClock, percentile } from '../src/metrics.js';
+import { computeBackoff } from '../src/util.js';
 
 console.log('🧪 EchoDoc metrics suite (latency + turn clock)...\n');
 
@@ -57,5 +58,12 @@ ok('barge-in null when no active reply', clock.markBargeIn() === null);
 // no user stop -> no turnaround attribution
 const clock2 = new TurnClock(() => now);
 ok('firstAudio null without userStop', clock2.markFirstAudio() === null);
+
+// 5. computeBackoff — exponential + jitter, capped
+console.log('\n4️⃣ computeBackoff (reconnect)...');
+ok('attempt 1 ≈ base (500..750)', computeBackoff(1, 500, 15000, 250) >= 500 && computeBackoff(1, 500, 15000, 250) < 750);
+ok('attempt 2 ≈ 1000 (1000..1250)', computeBackoff(2, 500, 15000, 250) >= 1000 && computeBackoff(2, 500, 15000, 250) < 1250);
+ok('grows exponentially', computeBackoff(4, 500, 15000, 0) === 4000);
+ok('capped at cap', computeBackoff(20, 500, 15000, 0) === 15000);
 
 console.log(`\n🎉 ALL ${passed} ECHODOC METRICS ASSERTIONS PASSED.\n`);
