@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="EchoDoc — real-time clinical voice scribe and diagnostic copilot on AssemblyAI. Live SOAP notes, drug-interaction alerts, and sub-second interruptible voice.">
+  <meta name="color-scheme" content="dark">
   <title>EchoDoc — Sub-Second Clinical Voice Copilot</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,6 +13,12 @@
   <style>
     body { font-family: 'Plus Jakarta Sans', sans-serif; }
     code, pre { font-family: 'JetBrains Mono', monospace; }
+    /* Visible keyboard focus for accessibility */
+    :focus-visible { outline: 2px solid #22d3ee; outline-offset: 2px; border-radius: 6px; }
+    /* Respect reduced-motion preference */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+    }
     @keyframes pulse-red {
       0%, 100% { border-color: rgba(239, 68, 68, 0.8); box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
       50% { border-color: rgba(239, 68, 68, 0.2); box-shadow: 0 0 5px rgba(239, 68, 68, 0.1); }
@@ -42,12 +50,12 @@
 
     <!-- Actions & Status Badges -->
     <div class="flex items-center space-x-3">
-      <div id="connectionStatus" class="flex items-center space-x-2 text-xs font-medium px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300">
+      <div id="connectionStatus" role="status" aria-live="polite" class="flex items-center space-x-2 text-xs font-medium px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300">
         <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
         <span>Connecting...</span>
       </div>
 
-      <button id="btnSimulation" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition flex items-center space-x-1.5">
+      <button id="btnSimulation" aria-label="Run a simulated consultation encounter" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition flex items-center space-x-1.5">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -55,21 +63,21 @@
         <span>Simulate Encounter</span>
       </button>
 
-      <button id="btnVoiceAgentToggle" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition flex items-center space-x-1.5" title="Start full-duplex spoken dialogue with EchoDoc Copilot">
+      <button id="btnVoiceAgentToggle" aria-label="Talk to the voice copilot (full-duplex spoken dialogue)" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition flex items-center space-x-1.5" title="Start full-duplex spoken dialogue with EchoDoc Copilot">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
         </svg>
         <span id="voiceAgentText">Talk to Voice Copilot</span>
       </button>
 
-      <button id="btnMicToggle" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-600/30 transition flex items-center space-x-1.5" title="Start live ambient consultation scribe">
+      <button id="btnMicToggle" aria-label="Start or stop the live ambient consultation scribe" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-600/30 transition flex items-center space-x-1.5" title="Start live ambient consultation scribe">
         <svg id="micIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"></path>
         </svg>
         <span id="micText">Live Ambient Scribe</span>
       </button>
 
-      <button id="btnExport" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center space-x-1.5" title="Export Clinical SOAP Markdown">
+      <button id="btnExport" aria-label="Export the SOAP note as Markdown" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center space-x-1.5" title="Export Clinical SOAP Markdown">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
         </svg>
@@ -125,7 +133,7 @@
           <span class="text-[11px] text-slate-500">Universal-2 STT</span>
         </div>
 
-        <div id="transcriptContainer" class="flex-1 overflow-y-auto space-y-3 pr-2 scroll-smooth text-sm">
+        <div id="transcriptContainer" role="log" aria-live="polite" aria-label="Live consultation transcript" class="flex-1 overflow-y-auto space-y-3 pr-2 scroll-smooth text-sm">
           <div class="p-3 rounded-lg bg-slate-950/60 border border-slate-800/60 text-slate-400 text-xs italic">
             Waiting for audio dictation to begin. Click "Run Simulated Encounter" or "Start Live Dictation" to observe streaming transcripts.
           </div>
