@@ -8,6 +8,12 @@ import { AssemblyAIStreamingClient } from './assemblyai_client.js';
 import { AssemblyAIVoiceAgentClient } from './voice_agent_client.js';
 import { ClinicalEngine } from './clinical_engine.js';
 import { resolveSafePath, isMockMode } from './util.js';
+import { LatencyTracker, TurnClock } from './metrics.js';
+import { log } from './logger.js';
+
+// Server-wide latency aggregates (exposed on /api/health and /api/metrics).
+const turnaroundMs = new LatencyTracker();
+const bargeInMs = new LatencyTracker();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,7 +45,19 @@ const server = http.createServer((req, res) => {
       service: 'EchoDoc Voice Agent',
       timestamp: new Date().toISOString(),
       hasApiKey: Boolean(process.env.ASSEMBLYAI_API_KEY && process.env.ASSEMBLYAI_API_KEY !== 'your_assemblyai_api_key_here'),
-      mockMode: isMockMode()
+      mockMode: isMockMode(),
+      latency: { turnaroundMs: turnaroundMs.summary(), bargeInMs: bargeInMs.summary() }
+    }));
+    return;
+  }
+
+  // Prometheus-friendly latency metrics.
+  if (req.url === '/api/metrics' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      turnaroundMs: turnaroundMs.summary(),
+      bargeInMs: bargeInMs.summary(),
+      slo: { turnaroundP95TargetMs: 1200, bargeInP95TargetMs: 200 }
     }));
     return;
   }
@@ -137,6 +155,7 @@ wss.on('connection', (clientWs: WebSocket) => {
   const clinicalEngine = new ClinicalEngine();
   let assemblyClient: AssemblyAIStreamingClient | null = null;
   let voiceAgentClient: AssemblyAIVoiceAgentClient | null = null;
+  let turnClock: TurnClock | null = null;
   let activeMode: 'STT' | 'VOICE_AGENT' = 'STT';
 
   const sendToClient: SendToClient = (type, payload = {}) => {
@@ -186,6 +205,7 @@ wss.on('connection', (clientWs: WebSocket) => {
         sendToClient('SESSION_STOPPED', { soapNotes: clinicalEngine.soapNotes, activeAlerts: clinicalEngine.activeSafetyAlerts });
       } else if (msg.action === 'START_VOICE_AGENT') {
         activeMode = 'VOICE_AGENT';
+        turnClock = new TurnClock();
         voiceAgentClient = new AssemblyAIVoiceAgentClient(process.env.ASSEMBLYAI_API_KEY, { clinicalEngine, voice: msg.voice || 'anna' });
 
         voiceAgentClient.on('session_ready', (ev: any) => sendToClient('VOICE_AGENT_READY', {
@@ -193,13 +213,39 @@ wss.on('connection', (clientWs: WebSocket) => {
           voice: voiceAgentClient?.voice,
           message: 'Voice Agent initialized. Speak into your microphone to talk to EchoDoc.'
         }));
-        voiceAgentClient.on('user_speech_started', () => sendToClient('USER_SPEECH_STARTED'));
+        voiceAgentClient.on('user_speech_started', () => {
+          sendToClient('USER_SPEECH_STARTED');
+          // Barge-in: user spoke while the agent was replying — measure halt latency.
+          const haltMs = turnClock?.markBargeIn();
+          if (haltMs != null) {
+            bargeInMs.add(haltMs);
+            log.info('barge_in', { haltMs, p95: bargeInMs.summary().p95 });
+            sendToClient('INTERRUPTED', { haltMs, summary: bargeInMs.summary() });
+          }
+        });
         voiceAgentClient.on('user_transcript_delta', (ev: any) => sendToClient('USER_TRANSCRIPT_DELTA', { text: ev.text }));
-        voiceAgentClient.on('user_transcript_final', (ev: any) => sendToClient('USER_TRANSCRIPT_FINAL', { text: ev.text }));
-        voiceAgentClient.on('agent_reply_started', () => sendToClient('AGENT_REPLY_STARTED'));
-        voiceAgentClient.on('agent_reply_audio', (ev: any) => sendToClient('AGENT_REPLY_AUDIO', { audio: ev.data, format: ev.format }));
+        voiceAgentClient.on('user_transcript_final', (ev: any) => {
+          sendToClient('USER_TRANSCRIPT_FINAL', { text: ev.text });
+          turnClock?.markUserStop(); // start the turnaround stopwatch
+        });
+        voiceAgentClient.on('agent_reply_started', () => {
+          sendToClient('AGENT_REPLY_STARTED');
+          turnClock?.markReplyStart();
+        });
+        voiceAgentClient.on('agent_reply_audio', (ev: any) => {
+          const turnaround = turnClock?.markFirstAudio();
+          if (turnaround != null) {
+            turnaroundMs.add(turnaround);
+            log.info('turnaround', { ms: turnaround, p95: turnaroundMs.summary().p95 });
+            sendToClient('LATENCY', { turnaroundMs: turnaround, summary: turnaroundMs.summary() });
+          }
+          sendToClient('AGENT_REPLY_AUDIO', { audio: ev.data, format: ev.format });
+        });
         voiceAgentClient.on('agent_transcript', (ev: any) => sendToClient('AGENT_TRANSCRIPT', { text: ev.text }));
-        voiceAgentClient.on('agent_reply_done', (ev: any) => sendToClient('AGENT_REPLY_DONE', { status: ev.status, interrupted: ev.interrupted }));
+        voiceAgentClient.on('agent_reply_done', (ev: any) => {
+          turnClock?.markReplyDone();
+          sendToClient('AGENT_REPLY_DONE', { status: ev.status, interrupted: ev.interrupted });
+        });
         voiceAgentClient.on('tool_executed', (ev: any) => {
           sendToClient('TOOL_EXECUTED', { name: ev.name, args: ev.args, result: ev.result });
           sendToClient('SOAP_UPDATE', { currentSoap: clinicalEngine.soapNotes });
