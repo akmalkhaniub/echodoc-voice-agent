@@ -26,6 +26,15 @@ export function resolveSafePath(publicDir: string, urlPath: string | undefined):
 }
 
 /**
+ * Exponential backoff with jitter, capped. attempt is 1-based.
+ * e.g. base=500, cap=15000 → ~500, 1000, 2000, 4000, … (+ up to `jitter` ms).
+ */
+export function computeBackoff(attempt: number, base = 500, cap = 15000, jitter = 250): number {
+  const exp = Math.min(cap, base * 2 ** Math.max(0, attempt - 1));
+  return exp + Math.floor(Math.random() * jitter);
+}
+
+/**
  * True when no usable AssemblyAI API key is configured, meaning the app should
  * run in local simulator (mock) mode.
  */

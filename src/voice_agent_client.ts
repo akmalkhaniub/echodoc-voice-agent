@@ -1,6 +1,8 @@
 import WebSocket from 'ws';
 import { EventEmitter } from 'events';
 import type { ClinicalEngine } from './clinical_engine.js';
+import { computeBackoff } from './util.js';
+import { log } from './logger.js';
 
 export interface VoiceAgentOptions {
   token?: string | null;
@@ -8,6 +10,8 @@ export interface VoiceAgentOptions {
   clinicalEngine?: ClinicalEngine | null;
   isMock?: boolean;
   connectTimeoutMs?: number;
+  autoReconnect?: boolean;
+  maxReconnectAttempts?: number;
 }
 
 export interface ToolCall {
@@ -32,6 +36,10 @@ export class AssemblyAIVoiceAgentClient extends EventEmitter {
   isReady: boolean;
   connectTimeoutMs: number;
   isMock: boolean;
+  autoReconnect: boolean;
+  maxReconnectAttempts: number;
+  private reconnectAttempts = 0;
+  private intentionalClose = false;
 
   constructor(apiKey?: string, options: VoiceAgentOptions = {}) {
     super();
@@ -44,6 +52,8 @@ export class AssemblyAIVoiceAgentClient extends EventEmitter {
     this.sessionId = null;
     this.isReady = false;
     this.connectTimeoutMs = options.connectTimeoutMs || 12000;
+    this.autoReconnect = options.autoReconnect ?? true;
+    this.maxReconnectAttempts = options.maxReconnectAttempts ?? 4;
     this.isMock =
       options.isMock ||
       !this.apiKey ||
@@ -113,12 +123,36 @@ export class AssemblyAIVoiceAgentClient extends EventEmitter {
       });
 
       this.ws.on('close', (code: number, reason: Buffer) => {
-        console.log(`🔌 [Voice Agent Client] Closed with code ${code}: ${reason}`);
+        log.info('agent_ws_closed', { code, reason: reason.toString() });
         this.isConnected = false;
         this.isReady = false;
         this.emit('close', { code, reason });
+        this.maybeReconnect(code);
       });
     });
+  }
+
+  /** Re-establish the agent session after an unexpected drop, with capped backoff. */
+  private maybeReconnect(code: number): void {
+    if (this.intentionalClose || !this.autoReconnect || this.isMock) return;
+    if (code === 1000) return; // normal closure
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      this.emit('error', new Error(`Voice Agent reconnect gave up after ${this.reconnectAttempts} attempts`));
+      return;
+    }
+    this.reconnectAttempts++;
+    const delay = computeBackoff(this.reconnectAttempts);
+    log.warn('agent_reconnecting', { attempt: this.reconnectAttempts, delayMs: delay });
+    this.emit('reconnecting', { attempt: this.reconnectAttempts, delayMs: delay });
+    setTimeout(() => {
+      this.connect()
+        .then(() => {
+          this.reconnectAttempts = 0;
+          this.emit('reconnected');
+          log.info('agent_reconnected');
+        })
+        .catch((err) => log.error('agent_reconnect_failed', { message: (err as Error).message }));
+    }, delay).unref?.();
   }
 
   /** Configure agent persona, voice, greeting, and clinical tools */
@@ -259,8 +293,9 @@ export class AssemblyAIVoiceAgentClient extends EventEmitter {
     this.ws.send(JSON.stringify({ type: 'input.audio', audio: base64Audio }));
   }
 
-  /** Disconnect cleanly */
+  /** Disconnect cleanly. Suppresses auto-reconnect. */
   disconnect(): void {
+    this.intentionalClose = true;
     if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.close();
     this.isConnected = false;
     this.isReady = false;

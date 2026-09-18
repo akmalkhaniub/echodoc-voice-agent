@@ -191,6 +191,8 @@ wss.on('connection', (clientWs: WebSocket) => {
         });
 
         assemblyClient.on('error', (err: Error) => sendToClient('ERROR', { message: err.message }));
+        assemblyClient.on('reconnecting', (ev: any) => sendToClient('RECONNECTING', { scope: 'stt', ...ev }));
+        assemblyClient.on('reconnected', () => sendToClient('RECONNECTED', { scope: 'stt' }));
 
         await assemblyClient.connect();
         sendToClient('SESSION_STARTED', {
@@ -251,6 +253,8 @@ wss.on('connection', (clientWs: WebSocket) => {
           sendToClient('SOAP_UPDATE', { currentSoap: clinicalEngine.soapNotes });
         });
         voiceAgentClient.on('error', (err: Error) => sendToClient('ERROR', { message: err.message }));
+        voiceAgentClient.on('reconnecting', (ev: any) => sendToClient('RECONNECTING', { scope: 'agent', ...ev }));
+        voiceAgentClient.on('reconnected', () => sendToClient('RECONNECTED', { scope: 'agent' }));
 
         await voiceAgentClient.connect();
       } else if (msg.action === 'STOP_VOICE_AGENT') {
