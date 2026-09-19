@@ -22,7 +22,8 @@
     "deploy:gcp": "sh deploy/gcp/deploy.sh",
     "deploy:azure": "sh deploy/azure/deploy.sh",
     "deploy:k8s": "kubectl apply -k deploy/k8s/",
-    "tunnel": "powershell -ExecutionPolicy Bypass -File deploy/free/tunnel.ps1"
+    "tunnel": "powershell -ExecutionPolicy Bypass -File deploy/free/tunnel.ps1",
+    "coverage": "cross-env MOCK_STREAMING=true c8 sh -c \"tsx test/simulate_consultation.ts && tsx test/unit_offline.ts && tsx test/metrics.test.ts && tsx test/server_ws.test.ts\""
   },
   "engines": {
     "node": ">=18.0.0"
@@ -35,6 +36,8 @@
   "devDependencies": {
     "@types/node": "^22.20.3",
     "@types/ws": "^8.18.1",
+    "c8": "^10.1.3",
+    "cross-env": "^7.0.3",
     "tsx": "^4.23.13",
     "typescript": "^5.9.3"
   },

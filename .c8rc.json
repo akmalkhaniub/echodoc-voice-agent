@@ -1,0 +1,7 @@
+{
+  "//": "Offline coverage gates the pure-logic modules. The WebSocket client + server I/O paths run only against the live AssemblyAI service and are covered by test/verify_assemblyai_v3.ts (npm run test:live).",
+  "include": ["src/clinical_engine.ts", "src/metrics.ts", "src/util.ts", "src/logger.ts"],
+  "reporter": ["text-summary"],
+  "check-coverage": true,
+  "lines": 85
+}
