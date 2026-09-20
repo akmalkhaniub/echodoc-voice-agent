@@ -85,5 +85,9 @@ engine.processUtterance('Also took Ibuprofen 800mg.', 'Patient');
 ok('contraindication alert fires exactly once', engine.activeSafetyAlerts.length === 1);
 ok('checkDrugs matches sildenafil + nitroglycerin', engine.checkDrugs(['sildenafil', 'nitroglycerin']).length === 1);
 ok('exportMarkdown includes SOAP headers', engine.exportMarkdown().includes('S — Subjective'));
+const vitalsOnly = new ClinicalEngine();
+vitalsOnly.processUtterance('Let us take your vital signs. Your blood pressure is 158/96 mmHg and heart rate is 88 bpm.', 'Doctor');
+ok('vitals land in Objective', vitalsOnly.soapNotes.objective.length === 1);
+ok('vitals do not leak into Plan', vitalsOnly.soapNotes.plan.length === 0);
 
 console.log(`\n🎉 ALL ${passed} ECHODOC OFFLINE UNIT ASSERTIONS PASSED.\n`);

@@ -1,256 +1,213 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<html lang="en" class="h-full">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="EchoDoc — real-time clinical voice scribe and diagnostic copilot on AssemblyAI. Live SOAP notes, drug-interaction alerts, and sub-second interruptible voice.">
-  <meta name="color-scheme" content="dark">
-  <title>EchoDoc — Sub-Second Clinical Voice Copilot</title>
+  <meta name="color-scheme" content="light">
+  <title>EchoDoc — Clinical Voice Copilot</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            paper: '#f4f1ec',
+            ink: '#1c1917',
+            mute: '#78716c',
+            line: '#e7e2d9',
+            teal: { 800: '#115e59', 700: '#0f766e', 50: '#f0fdfa' }
+          },
+          fontFamily: {
+            serif: ['"Fraunces"', 'Georgia', 'serif'],
+            sans: ['"Source Sans 3"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Plus Jakarta Sans', sans-serif; }
-    code, pre { font-family: 'JetBrains Mono', monospace; }
-    /* Visible keyboard focus for accessibility */
-    :focus-visible { outline: 2px solid #22d3ee; outline-offset: 2px; border-radius: 6px; }
-    /* Respect reduced-motion preference */
+    :root { color-scheme: light; }
+    body { font-family: 'Source Sans 3', sans-serif; background: #f4f1ec; color: #1c1917; }
+    .brand { font-family: 'Fraunces', Georgia, serif; }
+    code, pre, .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+    :focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; border-radius: 6px; }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
     }
-    @keyframes pulse-red {
-      0%, 100% { border-color: rgba(239, 68, 68, 0.8); box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
-      50% { border-color: rgba(239, 68, 68, 0.2); box-shadow: 0 0 5px rgba(239, 68, 68, 0.1); }
-    }
-    .contraindication-hazard {
-      animation: pulse-red 2s infinite;
-    }
+    .chart-card { background: #fffefb; border: 1px solid #e7e2d9; }
+    .feed-scroll::-webkit-scrollbar { width: 8px; }
+    .feed-scroll::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 8px; }
   </style>
 </head>
-<body class="h-full flex flex-col overflow-hidden">
+<body class="h-full flex flex-col overflow-hidden max-md:h-auto max-md:overflow-auto">
 
-  <!-- Header / Navigation Bar -->
-  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md px-6 py-3.5 flex items-center justify-between shrink-0">
-    <div class="flex items-center space-x-3">
-      <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"></path>
-        </svg>
-      </div>
-      <div>
-        <div class="flex items-center space-x-2">
-          <h1 class="font-bold text-lg text-white tracking-tight">EchoDoc</h1>
-          <span class="text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-400">Universal-3.5-Pro</span>
-          <span class="text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full bg-indigo-950 border border-indigo-800 text-indigo-400">Voice Agent API</span>
+  <header class="shrink-0 border-b border-line bg-[#fffefb]">
+    <div class="px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="h-9 w-9 rounded-full bg-teal-800 text-white flex items-center justify-center" aria-hidden="true">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"></path>
+          </svg>
         </div>
-        <p class="text-xs text-slate-400">Sub-Second Clinical Voice Scribe &amp; Diagnostic Copilot</p>
+        <div class="min-w-0">
+          <div class="flex items-baseline gap-2">
+            <h1 class="brand text-[1.35rem] leading-none text-ink tracking-tight">EchoDoc</h1>
+            <span class="text-[11px] tracking-[0.14em] uppercase text-mute">Clinical scribe</span>
+          </div>
+          <p class="text-sm text-mute mt-0.5">Ambient SOAP notes · interruptible voice copilot</p>
+        </div>
       </div>
     </div>
 
-    <!-- Actions & Status Badges -->
-    <div class="flex items-center space-x-3">
-      <div id="connectionStatus" role="status" aria-live="polite" class="flex items-center space-x-2 text-xs font-medium px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300">
-        <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+    <div class="px-6 pb-4 flex flex-wrap items-center gap-2">
+      <div id="modeBadge" role="status" class="inline-flex items-center gap-2 text-[12px] font-medium px-3 py-1.5 rounded-full bg-paper border border-line text-mute">
+        <span class="w-1.5 h-1.5 rounded-full bg-stone-400"></span>
+        <span>Checking mode…</span>
+      </div>
+      <div id="connectionStatus" role="status" aria-live="polite" class="inline-flex items-center gap-2 text-[12px] font-medium px-3 py-1.5 rounded-full bg-paper border border-line text-mute">
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
         <span>Connecting...</span>
       </div>
-
-      <button id="btnSimulation" aria-label="Run a simulated consultation encounter" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition flex items-center space-x-1.5">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-        <span>Simulate Encounter</span>
+      <button id="btnSimulation" aria-label="Run a simulated consultation encounter" class="px-3.5 py-2 text-[13px] font-semibold rounded-full bg-white text-ink border border-line hover:bg-paper transition">
+        Simulate encounter
       </button>
-
-      <button id="btnVoiceAgentToggle" aria-label="Talk to the voice copilot (full-duplex spoken dialogue)" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition flex items-center space-x-1.5" title="Start full-duplex spoken dialogue with EchoDoc Copilot">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-        </svg>
-        <span id="voiceAgentText">Talk to Voice Copilot</span>
+      <button id="btnVoiceAgentToggle" aria-label="Talk to the voice copilot (full-duplex spoken dialogue)" class="px-3.5 py-2 text-[13px] font-semibold rounded-full bg-stone-900 text-white hover:bg-stone-800 transition" title="Start full-duplex spoken dialogue with EchoDoc Copilot">
+        <span id="voiceAgentText">Talk to copilot</span>
       </button>
-
-      <button id="btnMicToggle" aria-label="Start or stop the live ambient consultation scribe" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-600/30 transition flex items-center space-x-1.5" title="Start live ambient consultation scribe">
-        <svg id="micIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"></path>
-        </svg>
-        <span id="micText">Live Ambient Scribe</span>
+      <button id="btnMicToggle" aria-label="Start or stop the live ambient consultation scribe" class="px-3.5 py-2 text-[13px] font-semibold rounded-full bg-teal-800 text-white hover:bg-teal-700 transition" title="Start live ambient consultation scribe">
+        <span id="micText">Start ambient scribe</span>
       </button>
-
-      <button id="btnExport" aria-label="Export the SOAP note as Markdown" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center space-x-1.5" title="Export Clinical SOAP Markdown">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-        </svg>
-        <span>Export Note</span>
+      <button id="btnExport" aria-label="Export the SOAP note as Markdown" class="px-3.5 py-2 text-[13px] font-semibold rounded-full bg-white text-ink border border-line hover:bg-paper transition">
+        Export note
       </button>
+      <span class="text-[11px] text-mute ml-auto hidden xl:inline">Shortcuts · S simulate · M scribe · V copilot · I interrupt · E export</span>
     </div>
   </header>
 
-  <!-- Safety Warning Alert Bar (Hidden until hazard detected) -->
-  <div id="safetyAlertBar" class="hidden bg-red-950/90 border-b border-red-800/80 px-6 py-3 shrink-0 contraindication-hazard">
-    <div class="flex items-start justify-between">
-      <div class="flex items-start space-x-3">
-        <div class="p-1 rounded bg-red-900 text-red-300 mt-0.5">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-          </svg>
-        </div>
-        <div>
-          <h4 id="alertTitle" class="text-sm font-bold text-red-200">Contraindication Alert Detected</h4>
-          <p id="alertDescription" class="text-xs text-red-300 mt-0.5">Severe bleeding risk identified.</p>
-        </div>
+  <div id="safetyAlertBar" class="hidden shrink-0 border-b border-red-200 bg-red-50 px-6 py-3">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h4 id="alertTitle" class="text-sm font-semibold text-red-800">Contraindication alert</h4>
+        <p id="alertDescription" class="text-sm text-red-700 mt-0.5">Severe bleeding risk identified.</p>
       </div>
-      <button onclick="document.getElementById('safetyAlertBar').classList.add('hidden')" class="text-red-400 hover:text-red-200 text-xs font-semibold px-2 py-1">Dismiss</button>
+      <button onclick="document.getElementById('safetyAlertBar').classList.add('hidden')" class="text-sm font-medium text-red-800 hover:text-red-950">Dismiss</button>
     </div>
   </div>
 
-  <!-- Main Work Area (Split Grid) -->
-  <main class="flex-1 grid grid-cols-12 overflow-hidden">
+  <main class="flex-1 grid grid-cols-1 md:grid-cols-12 overflow-hidden max-md:overflow-visible">
 
-    <!-- Left Column: Audio Visualizer, Transcript & Conversational Copilot -->
-    <section class="col-span-5 border-r border-slate-800 flex flex-col bg-slate-900/30 overflow-hidden">
-      
-      <!-- Waveform Visualizer & Live Streaming Banner -->
-      <div class="p-4 border-b border-slate-800/80 bg-slate-900/50 flex flex-col space-y-2">
-        <div class="flex items-center justify-between text-xs text-slate-400">
-          <span class="flex items-center space-x-2">
-            <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
-            <span class="font-medium text-slate-300">Live Audio Stream (16kHz PCM)</span>
-          </span>
-          <span class="flex items-center gap-3 text-[11px] font-mono bg-slate-950/70 border border-slate-800 px-2.5 py-1 rounded" title="Live measured latency. Turnaround = your stop → agent's first audio. SLO: p95 < 1200ms / barge-in p95 < 200ms.">
-            <span class="text-slate-500">turn</span><span id="hudTurnaround" class="font-bold text-slate-300">—</span>
-            <span class="text-slate-500">p95</span><span id="hudP95" class="font-bold text-slate-300">—</span>
-            <span class="text-slate-500">barge</span><span id="hudBargeIn" class="font-bold text-slate-300">—</span>
-          </span>
-        </div>
-        <canvas id="audioVisualizer" class="w-full h-12 rounded-lg bg-slate-950 border border-slate-800"></canvas>
-      </div>
-
-      <!-- Real-Time Transcript Stream -->
-      <div class="flex-1 flex flex-col overflow-hidden p-4">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Real-Time Consultation Feed</h3>
-          <span class="text-[11px] text-slate-500">Universal-2 STT</span>
-        </div>
-
-        <div id="transcriptContainer" role="log" aria-live="polite" aria-label="Live consultation transcript" class="flex-1 overflow-y-auto space-y-3 pr-2 scroll-smooth text-sm">
-          <div class="p-3 rounded-lg bg-slate-950/60 border border-slate-800/60 text-slate-400 text-xs italic">
-            Waiting for audio dictation to begin. Click "Run Simulated Encounter" or "Start Live Dictation" to observe streaming transcripts.
-          </div>
-        </div>
-
-        <!-- Partial Transcript (Live Interim Utterance) -->
-        <div id="partialBox" class="mt-2 p-2.5 rounded-lg bg-cyan-950/30 border border-cyan-900/50 text-cyan-300 text-xs hidden flex items-center space-x-2">
-          <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-          <span id="partialText" class="italic">...</span>
-        </div>
-      </div>
-
-      <!-- Interactive Copilot Query Box (with Barge-In) -->
-      <div class="p-4 border-t border-slate-800 bg-slate-900/60">
-        <form id="copilotForm" class="flex items-center space-x-2">
-          <input 
-            type="text" 
-            id="copilotInput" 
-            placeholder="Ask Copilot: 'What was the BP?' or 'Any drug interactions?'"
-            class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition"
-          />
-          <button type="submit" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 rounded-lg text-xs font-semibold transition">
-            Ask
-          </button>
-          <button type="button" id="btnBargeIn" class="px-2.5 py-2 bg-red-950/60 hover:bg-red-900/60 text-red-400 border border-red-800/80 rounded-lg text-xs font-medium transition" title="Simulate voice interruption (barge-in)">
-            Interrupt
-          </button>
-        </form>
-        <div id="copilotAnswer" class="mt-2 text-xs text-cyan-200/90 font-mono hidden bg-slate-950/80 p-2.5 rounded border border-cyan-950"></div>
-      </div>
-    </section>
-
-    <!-- Right Column: Auto-Populating SOAP Note & Clinical Safety Matrix -->
-    <section class="col-span-7 flex flex-col overflow-hidden bg-slate-950">
-      
-      <!-- Patient Context Header -->
-      <div class="px-6 py-3.5 border-b border-slate-800 bg-slate-900/40 flex items-center justify-between shrink-0">
+    <section class="md:col-span-5 border-r border-line flex flex-col bg-[#fffefb] overflow-hidden max-md:min-h-[28rem]">
+      <div class="px-6 py-4 border-b border-line flex items-center justify-between gap-3">
         <div>
-          <span class="text-xs font-bold text-slate-200">Patient: Jane Doe (48F)</span>
-          <span class="text-slate-500 text-xs ml-2">MRN: #99482-A</span>
+          <p class="text-[11px] uppercase tracking-[0.16em] text-mute">Encounter audio</p>
+          <p class="text-sm text-ink mt-0.5">16 kHz PCM · AssemblyAI Universal-3.5-Pro</p>
         </div>
-        <div class="flex items-center space-x-2">
-          <span class="text-[11px] text-slate-400 font-medium">Verified Medications:</span>
-          <div id="medicationTags" class="flex items-center space-x-1">
-            <span class="text-[10px] text-slate-500 italic">None registered yet</span>
+        <div class="flex items-center gap-3 text-[11px] mono bg-paper border border-line px-3 py-1.5 rounded-full" title="Turnaround = you stop → first agent audio. SLO: p95 < 1200ms / barge-in p95 < 200ms.">
+          <span class="text-mute">turn</span><span id="hudTurnaround" class="font-medium text-ink">—</span>
+          <span class="text-mute">p95</span><span id="hudP95" class="font-medium text-ink">—</span>
+          <span class="text-mute">barge</span><span id="hudBargeIn" class="font-medium text-ink">—</span>
+        </div>
+      </div>
+      <div class="px-6 pt-4">
+        <canvas id="audioVisualizer" class="w-full h-14 rounded-lg bg-paper border border-line"></canvas>
+      </div>
+
+      <div class="flex-1 flex flex-col overflow-hidden px-6 py-4">
+        <div class="flex items-baseline justify-between mb-3">
+          <h3 class="text-[11px] uppercase tracking-[0.16em] text-mute">Consultation feed</h3>
+        </div>
+        <div id="transcriptContainer" role="log" aria-live="polite" aria-label="Live consultation transcript" class="feed-scroll flex-1 overflow-y-auto space-y-3 pr-1 text-sm">
+          <div class="rounded-xl border border-line bg-paper px-4 py-3 text-sm text-mute">
+            Begin with <strong class="text-ink font-medium">Simulate encounter</strong> for a walkthrough, or start the ambient scribe / voice copilot with a live AssemblyAI key.
           </div>
+        </div>
+        <div id="partialBox" class="mt-3 px-4 py-2.5 rounded-xl bg-teal-50 border border-teal-100 text-teal-900 text-sm hidden flex items-center gap-2">
+          <span class="w-1.5 h-1.5 rounded-full bg-teal-700"></span>
+          <span id="partialText" class="italic">…</span>
         </div>
       </div>
 
-      <!-- Live 4-Quadrant SOAP Note Cards -->
-      <div class="flex-1 overflow-y-auto p-6 grid grid-cols-2 gap-4">
-        
-        <!-- S: Subjective -->
-        <div class="flex flex-col bg-slate-900/50 rounded-xl border border-slate-800 p-4 shadow-sm hover:border-slate-700 transition">
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center space-x-2">
-              <span class="h-6 w-6 rounded-md bg-blue-950 border border-blue-800 text-blue-400 font-bold text-xs flex items-center justify-center">S</span>
-              <h3 class="font-bold text-sm text-slate-200">Subjective</h3>
-            </div>
-            <span class="text-[10px] text-slate-500 uppercase font-medium">History of Present Illness</span>
-          </div>
-          <div id="soapSubjective" class="flex-1 space-y-1.5 text-xs text-slate-300 overflow-y-auto pr-1">
-            <p class="text-slate-500 italic">Awaiting symptoms and chief complaint...</p>
-          </div>
-        </div>
-
-        <!-- O: Objective -->
-        <div class="flex flex-col bg-slate-900/50 rounded-xl border border-slate-800 p-4 shadow-sm hover:border-slate-700 transition">
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center space-x-2">
-              <span class="h-6 w-6 rounded-md bg-emerald-950 border border-emerald-800 text-emerald-400 font-bold text-xs flex items-center justify-center">O</span>
-              <h3 class="font-bold text-sm text-slate-200">Objective</h3>
-            </div>
-            <span class="text-[10px] text-slate-500 uppercase font-medium">Vitals &amp; Physical Exam</span>
-          </div>
-          <div id="soapObjective" class="flex-1 space-y-1.5 text-xs text-slate-300 overflow-y-auto pr-1">
-            <p class="text-slate-500 italic">Awaiting vital readings and exam observations...</p>
-          </div>
-        </div>
-
-        <!-- A: Assessment -->
-        <div class="flex flex-col bg-slate-900/50 rounded-xl border border-slate-800 p-4 shadow-sm hover:border-slate-700 transition">
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center space-x-2">
-              <span class="h-6 w-6 rounded-md bg-purple-950 border border-purple-800 text-purple-400 font-bold text-xs flex items-center justify-center">A</span>
-              <h3 class="font-bold text-sm text-slate-200">Assessment</h3>
-            </div>
-            <span class="text-[10px] text-slate-500 uppercase font-medium">Clinical Impression</span>
-          </div>
-          <div id="soapAssessment" class="flex-1 space-y-1.5 text-xs text-slate-300 overflow-y-auto pr-1">
-            <p class="text-slate-500 italic">Awaiting diagnostic synthesis...</p>
-          </div>
-        </div>
-
-        <!-- P: Plan -->
-        <div class="flex flex-col bg-slate-900/50 rounded-xl border border-slate-800 p-4 shadow-sm hover:border-slate-700 transition">
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center space-x-2">
-              <span class="h-6 w-6 rounded-md bg-amber-950 border border-amber-800 text-amber-400 font-bold text-xs flex items-center justify-center">P</span>
-              <h3 class="font-bold text-sm text-slate-200">Plan</h3>
-            </div>
-            <span class="text-[10px] text-slate-500 uppercase font-medium">Rx Orders &amp; Follow-up</span>
-          </div>
-          <div id="soapPlan" class="flex-1 space-y-1.5 text-xs text-slate-300 overflow-y-auto pr-1">
-            <p class="text-slate-500 italic">Awaiting medication orders and instructions...</p>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Footer Info -->
-      <div class="border-t border-slate-800 px-6 py-2.5 bg-slate-900/20 text-[11px] text-slate-500 flex justify-between items-center">
-        <span>Continuous Sub-Second Scribe Engine Active</span>
-        <span>Built for AssemblyAI Voice Agent Hackathon 2026</span>
+      <div class="px-6 py-4 border-t border-line bg-paper/60">
+        <form id="copilotForm" class="flex items-center gap-2">
+          <input
+            type="text"
+            id="copilotInput"
+            placeholder="Ask: blood pressure, medications, interactions…"
+            class="flex-1 bg-white border border-line rounded-full px-4 py-2.5 text-sm text-ink placeholder:text-mute/80"
+          />
+          <button type="submit" class="px-4 py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-full text-sm font-semibold">Ask</button>
+          <button type="button" id="btnBargeIn" class="px-4 py-2.5 bg-white text-red-800 border border-red-200 hover:bg-red-50 rounded-full text-sm font-medium" title="Halt assistant audio (barge-in)">Interrupt</button>
+        </form>
+        <div id="copilotAnswer" class="mt-3 text-sm text-ink hidden bg-white border border-line px-4 py-3 rounded-xl"></div>
       </div>
     </section>
 
+    <section class="md:col-span-7 flex flex-col overflow-hidden bg-paper">
+      <div class="px-8 py-4 border-b border-line bg-[#fffefb] flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div>
+          <p class="brand text-lg text-ink leading-none">Eleanor Davis</p>
+          <p class="text-sm text-mute mt-1">48 years · female · MRN 99482-A</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] uppercase tracking-[0.14em] text-mute">Medications</span>
+          <div id="medicationTags" class="flex flex-wrap items-center gap-1">
+            <span class="text-sm text-mute">None recorded</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-6 grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+        <article class="chart-card flex flex-col rounded-2xl p-5 min-h-[180px]">
+          <div class="flex items-baseline justify-between mb-3">
+            <h3 class="text-sm font-semibold text-ink"><span class="text-mute font-normal mr-1">S</span> Subjective</h3>
+            <span class="text-[11px] uppercase tracking-[0.12em] text-mute">HPI</span>
+          </div>
+          <div id="soapSubjective" class="flex-1 space-y-2 text-[15px] leading-relaxed text-ink/90">
+            <p class="text-mute italic">Awaiting chief complaint…</p>
+          </div>
+        </article>
+
+        <article class="chart-card flex flex-col rounded-2xl p-5 min-h-[180px]">
+          <div class="flex items-baseline justify-between mb-3">
+            <h3 class="text-sm font-semibold text-ink"><span class="text-mute font-normal mr-1">O</span> Objective</h3>
+            <span class="text-[11px] uppercase tracking-[0.12em] text-mute">Exam</span>
+          </div>
+          <div id="soapObjective" class="flex-1 space-y-2 text-[15px] leading-relaxed text-ink/90">
+            <p class="text-mute italic">Awaiting vitals…</p>
+          </div>
+        </article>
+
+        <article class="chart-card flex flex-col rounded-2xl p-5 min-h-[180px]">
+          <div class="flex items-baseline justify-between mb-3">
+            <h3 class="text-sm font-semibold text-ink"><span class="text-mute font-normal mr-1">A</span> Assessment</h3>
+            <span class="text-[11px] uppercase tracking-[0.12em] text-mute">Impression</span>
+          </div>
+          <div id="soapAssessment" class="flex-1 space-y-2 text-[15px] leading-relaxed text-ink/90">
+            <p class="text-mute italic">Awaiting synthesis…</p>
+          </div>
+        </article>
+
+        <article class="chart-card flex flex-col rounded-2xl p-5 min-h-[180px]">
+          <div class="flex items-baseline justify-between mb-3">
+            <h3 class="text-sm font-semibold text-ink"><span class="text-mute font-normal mr-1">P</span> Plan</h3>
+            <span class="text-[11px] uppercase tracking-[0.12em] text-mute">Orders</span>
+          </div>
+          <div id="soapPlan" class="flex-1 space-y-2 text-[15px] leading-relaxed text-ink/90">
+            <p class="text-mute italic">Awaiting plan…</p>
+          </div>
+        </article>
+      </div>
+
+      <div class="border-t border-line px-8 py-3 bg-[#fffefb] text-[12px] text-mute flex flex-wrap justify-between gap-2">
+        <span>Prototype for demonstration only — not a medical device.</span>
+        <span>AssemblyAI Voice Agent Hackathon 2026</span>
+      </div>
+    </section>
   </main>
 
   <script src="/app.js" type="module"></script>

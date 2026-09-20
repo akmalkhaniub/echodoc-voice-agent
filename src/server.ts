@@ -164,6 +164,12 @@ wss.on('connection', (clientWs: WebSocket) => {
     }
   };
 
+  sendToClient('HELLO', {
+    mockMode: isMockMode(),
+    hasApiKey: Boolean(process.env.ASSEMBLYAI_API_KEY && process.env.ASSEMBLYAI_API_KEY !== 'your_assemblyai_api_key_here'),
+    slo: { turnaroundP95TargetMs: 1200, bargeInP95TargetMs: 200 }
+  });
+
   clientWs.on('message', async (data: WebSocket.RawData, isBinary: boolean) => {
     if (isBinary) {
       if (activeMode === 'VOICE_AGENT' && voiceAgentClient) voiceAgentClient.sendAudio(data as Buffer);
@@ -273,7 +279,14 @@ wss.on('connection', (clientWs: WebSocket) => {
       } else if (msg.action === 'RUN_SIMULATION') {
         runClinicalSimulation(sendToClient, clinicalEngine);
       } else if (msg.action === 'INTERRUPT') {
-        sendToClient('INTERRUPTED', { message: 'Assistant voice playback halted immediately (barge-in).' });
+        const haltMs = turnClock?.markBargeIn();
+        if (haltMs != null) {
+          bargeInMs.add(haltMs);
+          log.info('barge_in', { haltMs, source: 'client_interrupt', p95: bargeInMs.summary().p95 });
+          sendToClient('INTERRUPTED', { haltMs, summary: bargeInMs.summary() });
+        } else {
+          sendToClient('INTERRUPTED', { message: 'Assistant voice playback halted immediately (barge-in).' });
+        }
       }
     } catch (err) {
       log.error('ws_message_failed', { message: (err as Error).message });
@@ -294,6 +307,7 @@ wss.on('connection', (clientWs: WebSocket) => {
 export function runClinicalSimulation(sendToClient: SendToClient, clinicalEngine: ClinicalEngine): void {
   clinicalEngine.reset();
   sendToClient('SESSION_STARTED', { isMock: true, message: 'Simulating live medical consultation encounter...' });
+  sendToClient('SOAP_UPDATE', { currentSoap: clinicalEngine.soapNotes, reset: true });
 
   const script: Array<{ speaker: string; partial: string; final: string }> = [
     { speaker: 'Doctor', partial: 'Good morning, Mrs. Davis. How can I...', final: 'Good morning, Mrs. Davis. What brings you into the clinic today?' },

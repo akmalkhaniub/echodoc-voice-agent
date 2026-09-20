@@ -18,6 +18,7 @@ class EchoDocApp {
 
     // DOM Elements
     this.connectionStatus = document.getElementById('connectionStatus');
+    this.modeBadge = document.getElementById('modeBadge');
     this.btnMicToggle = document.getElementById('btnMicToggle');
     this.micText = document.getElementById('micText');
     this.micIcon = document.getElementById('micIcon');
@@ -65,8 +66,12 @@ class EchoDocApp {
     this.canvasCtx = this.canvas.getContext('2d');
 
     this.activeDrugs = new Set();
+    this.isMockMode = null;
+    this.metricsTimer = null;
     this.initWebSocket();
     this.bindEvents();
+    this.bindKeyboard();
+    this.pollHealthAndMetrics();
     this.drawEmptyWaveform();
   }
 
@@ -115,7 +120,7 @@ class EchoDocApp {
       red: 'bg-red-500'
     };
     this.connectionStatus.innerHTML = `
-      <span class="w-2 h-2 rounded-full ${colors[color] || 'bg-slate-400'}"></span>
+      <span class="w-1.5 h-1.5 rounded-full ${colors[color] || 'bg-stone-400'}"></span>
       <span>${text}</span>
     `;
   }
@@ -139,8 +144,54 @@ class EchoDocApp {
     });
   }
 
+  bindKeyboard() {
+    document.addEventListener('keydown', (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const key = e.key.toLowerCase();
+      if (key === 's') { e.preventDefault(); this.startSimulation(); }
+      else if (key === 'm') { e.preventDefault(); this.toggleMicrophone(); }
+      else if (key === 'v') { e.preventDefault(); this.toggleVoiceAgent(); }
+      else if (key === 'i') { e.preventDefault(); this.triggerBargeIn(); }
+      else if (key === 'e') { e.preventDefault(); this.exportMarkdownNote(); }
+    });
+  }
+
+  setModeBadge(isMock) {
+    this.isMockMode = Boolean(isMock);
+    if (!this.modeBadge) return;
+    if (this.isMockMode) {
+      this.modeBadge.className = 'inline-flex items-center gap-2 text-[12px] font-medium px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900';
+      this.modeBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span>Simulator</span>';
+      this.modeBadge.title = 'No AssemblyAI key — SOAP, alerts, and UI run locally. Voice copilot will not hit the live API.';
+    } else {
+      this.modeBadge.className = 'inline-flex items-center gap-2 text-[12px] font-medium px-3 py-1.5 rounded-full bg-teal-50 border border-teal-200 text-teal-900';
+      this.modeBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-teal-700"></span><span>Live AssemblyAI</span>';
+      this.modeBadge.title = 'Connected with a real AssemblyAI key. STT and Voice Agent hit live endpoints.';
+    }
+  }
+
+  async pollHealthAndMetrics() {
+    const tick = async () => {
+      try {
+        const health = await fetch('/api/health').then((r) => r.json());
+        if (typeof health.mockMode === 'boolean') this.setModeBadge(health.mockMode);
+        if (health.latency) this.renderLatencyHud(health.latency.turnaroundMs, health.latency.bargeInMs);
+        const metrics = await fetch('/api/metrics').then((r) => r.json());
+        if (metrics.turnaroundMs) this.renderLatencyHud(metrics.turnaroundMs, metrics.bargeInMs);
+      } catch (_) { /* server may be restarting */ }
+    };
+    tick();
+    clearInterval(this.metricsTimer);
+    this.metricsTimer = setInterval(tick, 4000);
+  }
+
   handleServerMessage(msg) {
     switch (msg.type) {
+      case 'HELLO':
+        this.setModeBadge(msg.mockMode);
+        break;
+
       case 'PARTIAL_TRANSCRIPT':
         if (msg.text) {
           this.partialBox.classList.remove('hidden');
@@ -203,7 +254,7 @@ class EchoDocApp {
         break;
 
       case 'SOAP_UPDATE':
-        this.updateSoapCards(msg.currentSoap);
+        this.updateSoapCards(msg.currentSoap, Boolean(msg.reset));
         break;
 
       case 'SAFETY_ALERTS':
@@ -221,7 +272,7 @@ class EchoDocApp {
         break;
 
       case 'SESSION_STARTED':
-        console.log('Session started:', msg.message);
+        this.appendTranscript(msg.message || 'Session started.', 'System');
         break;
 
       case 'SIMULATION_COMPLETED':
@@ -231,7 +282,7 @@ class EchoDocApp {
       case 'INTERRUPTED':
         this.stopAudioPlayback();
         this.copilotAnswer.classList.remove('hidden');
-        this.copilotAnswer.innerHTML = `<span class="text-red-400 font-bold">Interrupted (Barge-in):</span> Assistant audio halted${
+        this.copilotAnswer.innerHTML = `<span class="text-red-800 font-semibold">Interrupted:</span> assistant audio halted${
           typeof msg.haltMs === 'number' ? ` in ${msg.haltMs}ms` : ''
         }.`;
         if (msg.summary) this.renderLatencyHud(null, msg.summary);
@@ -269,12 +320,12 @@ class EchoDocApp {
     if (this.hudP95 && turnaroundSummary) {
       this.hudP95.innerText = fmt(turnaroundSummary.p95);
       const ok = turnaroundSummary.p95 > 0 && turnaroundSummary.p95 <= this.SLO_TURNAROUND_P95;
-      this.hudP95.className = `font-mono font-bold ${ok ? 'text-emerald-400' : 'text-amber-400'}`;
+      this.hudP95.className = `font-medium ${ok ? 'text-teal-800' : 'text-amber-800'}`;
     }
     if (this.hudBargeIn && bargeInSummary) {
       this.hudBargeIn.innerText = fmt(bargeInSummary.p95);
       const ok = bargeInSummary.p95 > 0 && bargeInSummary.p95 <= this.SLO_BARGE_IN_P95;
-      this.hudBargeIn.className = `font-mono font-bold ${ok ? 'text-emerald-400' : 'text-amber-400'}`;
+      this.hudBargeIn.className = `font-medium ${ok ? 'text-teal-800' : 'text-amber-800'}`;
     }
   }
 
@@ -302,18 +353,18 @@ class EchoDocApp {
     const isSystem = speaker === 'System';
 
     if (isSystem) {
-      bubble.className = 'text-center text-xs text-slate-500 font-mono py-1 border-y border-slate-800/80 my-2';
+      bubble.className = 'text-center text-[12px] text-mute py-2';
       bubble.innerText = text;
     } else {
-      bubble.className = `p-3 rounded-xl border ${
-        isDoctor ? 'bg-cyan-950/20 border-cyan-900/40 text-slate-200' : 'bg-slate-900/60 border-slate-800 text-slate-300'
+      bubble.className = `px-4 py-3 rounded-2xl border ${
+        isDoctor ? 'bg-teal-50/80 border-teal-100 text-ink' : 'bg-paper border-line text-ink'
       }`;
       bubble.innerHTML = `
-        <div class="flex items-center justify-between text-[11px] mb-1">
-          <span class="font-bold ${isDoctor ? 'text-cyan-400' : 'text-purple-400'}">${speaker}</span>
-          <span class="text-slate-500 text-[10px]">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+        <div class="flex items-center justify-between text-[12px] mb-1">
+          <span class="font-semibold ${isDoctor ? 'text-teal-800' : 'text-stone-700'}">${speaker}</span>
+          <span class="text-mute">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
         </div>
-        <p class="text-xs leading-relaxed">${text}</p>
+        <p class="text-[15px] leading-relaxed">${text}</p>
       `;
     }
 
@@ -321,7 +372,15 @@ class EchoDocApp {
     this.transcriptContainer.scrollTop = this.transcriptContainer.scrollHeight;
   }
 
-  updateSoapCards(soap) {
+  updateSoapCards(soap, reset = false) {
+    if (reset) {
+      this.soapSubjective.innerHTML = '<p class="text-mute italic">Awaiting chief complaint…</p>';
+      this.soapObjective.innerHTML = '<p class="text-mute italic">Awaiting vitals…</p>';
+      this.soapAssessment.innerHTML = '<p class="text-mute italic">Awaiting synthesis…</p>';
+      this.soapPlan.innerHTML = '<p class="text-mute italic">Awaiting plan…</p>';
+      this.medicationTags.innerHTML = '<span class="text-sm text-mute">None recorded</span>';
+      this.safetyAlertBar.classList.add('hidden');
+    }
     if (!soap) return;
 
     if (soap.subjective && soap.subjective.length > 0) {
@@ -333,11 +392,11 @@ class EchoDocApp {
     }
 
     if (soap.assessment && soap.assessment.length > 0) {
-      this.soapAssessment.innerHTML = soap.assessment.map(item => `<p class="leading-relaxed font-semibold text-purple-200">${item}</p>`).join('');
+      this.soapAssessment.innerHTML = soap.assessment.map(item => `<p class="leading-relaxed font-medium">${item}</p>`).join('');
     }
 
     if (soap.plan && soap.plan.length > 0) {
-      this.soapPlan.innerHTML = soap.plan.map(item => `<p class="leading-relaxed text-amber-200">${item}</p>`).join('');
+      this.soapPlan.innerHTML = soap.plan.map(item => `<p class="leading-relaxed">${item}</p>`).join('');
     }
 
     // Refresh medication tags
@@ -347,7 +406,7 @@ class EchoDocApp {
 
     if (detected.length > 0) {
       this.medicationTags.innerHTML = detected.map(d => `
-        <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-800 text-cyan-300 border border-slate-700">
+        <span class="text-[11px] font-semibold uppercase tracking-wide px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-900 border border-teal-100">
           ${d}
         </span>
       `).join('');
@@ -380,65 +439,58 @@ class EchoDocApp {
     }
   }
 
+  async startPcmCapture({ onActiveCheck }) {
+    this.audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+    this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, sampleRate: 16000 } });
+    const source = this.audioContext.createMediaStreamSource(this.mediaStream);
+
+    const sendFrame = (pcm, floatData) => {
+      if (!onActiveCheck()) return;
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(pcm);
+      }
+      if (floatData) this.drawWaveform(floatData);
+    };
+
+    if (this.audioContext.audioWorklet) {
+      try {
+        await this.audioContext.audioWorklet.addModule('/pcm_processor.js');
+        this.processor = new AudioWorkletNode(this.audioContext, 'pcm-processor');
+        this.processor.port.onmessage = (event) => {
+          const { pcm, floatData } = event.data;
+          sendFrame(pcm, floatData);
+        };
+        source.connect(this.processor);
+        this.processor.connect(this.audioContext.destination);
+        return;
+      } catch (workletErr) {
+        console.warn('AudioWorklet module loading failed, using fallback:', workletErr);
+      }
+    }
+    this.processor = this.audioContext.createScriptProcessor(2048, 1, 1);
+    this.processor.onaudioprocess = (e) => {
+      const inputData = e.inputBuffer.getChannelData(0);
+      sendFrame(this.floatTo16BitPCM(inputData), inputData);
+    };
+    source.connect(this.processor);
+    this.processor.connect(this.audioContext.destination);
+  }
+
   async startRecording() {
     try {
-      this.audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-      this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, sampleRate: 16000 } });
-      const source = this.audioContext.createMediaStreamSource(this.mediaStream);
-
-      // Prefer modern AudioWorkletNode (dedicated audio rendering thread)
-      if (this.audioContext.audioWorklet) {
-        try {
-          await this.audioContext.audioWorklet.addModule('/pcm_processor.js');
-          this.processor = new AudioWorkletNode(this.audioContext, 'pcm-processor');
-          this.processor.port.onmessage = (event) => {
-            if (!this.isRecording) return;
-            const { pcm, floatData } = event.data;
-            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-              this.ws.send(pcm);
-            }
-            if (floatData) {
-              this.drawWaveform(floatData);
-            }
-          };
-          source.connect(this.processor);
-          this.processor.connect(this.audioContext.destination);
-          console.log('⚡ AudioWorklet pipeline initialized successfully');
-        } catch (workletErr) {
-          console.warn('AudioWorklet module loading failed, using fallback:', workletErr);
-          this.initScriptProcessorFallback(source);
-        }
-      } else {
-        this.initScriptProcessorFallback(source);
-      }
-
       this.isRecording = true;
-      this.micText.innerText = 'Stop Dictation';
-      this.btnMicToggle.classList.remove('bg-cyan-600', 'hover:bg-cyan-500');
-      this.btnMicToggle.classList.add('bg-red-600', 'hover:bg-red-500');
+      await this.startPcmCapture({ onActiveCheck: () => this.isRecording });
+      this.micText.innerText = 'Stop scribe';
+      this.btnMicToggle.classList.remove('bg-teal-800', 'hover:bg-teal-700');
+      this.btnMicToggle.classList.add('bg-red-700', 'hover:bg-red-600');
 
       if (this.ws) {
         this.ws.send(JSON.stringify({ action: 'START_SESSION' }));
       }
     } catch (err) {
+      this.isRecording = false;
       alert('Microphone access failed or denied: ' + err.message);
     }
-  }
-
-  initScriptProcessorFallback(source) {
-    this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
-    this.processor.onaudioprocess = (e) => {
-      if (!this.isRecording) return;
-      const inputData = e.inputBuffer.getChannelData(0);
-      const pcm16 = this.floatTo16BitPCM(inputData);
-
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        this.ws.send(pcm16);
-      }
-      this.drawWaveform(inputData);
-    };
-    source.connect(this.processor);
-    this.processor.connect(this.audioContext.destination);
   }
 
   stopRecording() {
@@ -447,9 +499,9 @@ class EchoDocApp {
     if (this.mediaStream) this.mediaStream.getTracks().forEach(t => t.stop());
     if (this.audioContext) this.audioContext.close();
 
-    this.micText.innerText = 'Start Live Dictation';
-    this.btnMicToggle.classList.add('bg-cyan-600', 'hover:bg-cyan-500');
-    this.btnMicToggle.classList.remove('bg-red-600', 'hover:bg-red-500');
+    this.micText.innerText = 'Start ambient scribe';
+    this.btnMicToggle.classList.add('bg-teal-800', 'hover:bg-teal-700');
+    this.btnMicToggle.classList.remove('bg-red-700', 'hover:bg-red-600');
 
     if (this.ws) {
       this.ws.send(JSON.stringify({ action: 'STOP_SESSION' }));
@@ -468,9 +520,9 @@ class EchoDocApp {
   }
 
   drawEmptyWaveform() {
-    this.canvasCtx.fillStyle = '#020617';
+    this.canvasCtx.fillStyle = '#f4f1ec';
     this.canvasCtx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    this.canvasCtx.strokeStyle = '#1e293b';
+    this.canvasCtx.strokeStyle = '#e7e2d9';
     this.canvasCtx.beginPath();
     this.canvasCtx.moveTo(0, this.canvas.height / 2);
     this.canvasCtx.lineTo(this.canvas.width, this.canvas.height / 2);
@@ -480,11 +532,11 @@ class EchoDocApp {
   drawWaveform(audioData) {
     const width = this.canvas.width;
     const height = this.canvas.height;
-    this.canvasCtx.fillStyle = '#020617';
+    this.canvasCtx.fillStyle = '#f4f1ec';
     this.canvasCtx.fillRect(0, 0, width, height);
 
     this.canvasCtx.lineWidth = 1.5;
-    this.canvasCtx.strokeStyle = '#06b6d4';
+    this.canvasCtx.strokeStyle = '#0f766e';
     this.canvasCtx.beginPath();
 
     const sliceWidth = width / audioData.length;
@@ -516,35 +568,19 @@ class EchoDocApp {
         this.stopRecording();
       }
 
-      this.audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-      this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, sampleRate: 16000 } });
-      const source = this.audioContext.createMediaStreamSource(this.mediaStream);
-
-      this.processor = this.audioContext.createScriptProcessor(2048, 1, 1);
-      this.processor.onaudioprocess = (e) => {
-        if (!this.isVoiceAgentActive) return;
-        const inputData = e.inputBuffer.getChannelData(0);
-        const pcm16 = this.floatTo16BitPCM(inputData);
-
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-          this.ws.send(pcm16);
-        }
-        this.drawWaveform(inputData);
-      };
-      source.connect(this.processor);
-      this.processor.connect(this.audioContext.destination);
-
       this.isVoiceAgentActive = true;
-      if (this.voiceAgentText) this.voiceAgentText.innerText = 'Stop Voice Copilot';
+      await this.startPcmCapture({ onActiveCheck: () => this.isVoiceAgentActive });
+      if (this.voiceAgentText) this.voiceAgentText.innerText = 'Stop copilot';
       if (this.btnVoiceAgentToggle) {
-        this.btnVoiceAgentToggle.classList.remove('bg-indigo-600', 'hover:bg-indigo-500');
-        this.btnVoiceAgentToggle.classList.add('bg-rose-600', 'hover:bg-rose-500');
+        this.btnVoiceAgentToggle.classList.remove('bg-stone-900', 'hover:bg-stone-800');
+        this.btnVoiceAgentToggle.classList.add('bg-red-700', 'hover:bg-red-600');
       }
 
       if (this.ws) {
         this.ws.send(JSON.stringify({ action: 'START_VOICE_AGENT', voice: 'anna' }));
       }
     } catch (err) {
+      this.isVoiceAgentActive = false;
       alert('Microphone access failed: ' + err.message);
     }
   }
@@ -556,10 +592,10 @@ class EchoDocApp {
     if (this.mediaStream) this.mediaStream.getTracks().forEach(t => t.stop());
     if (this.audioContext) this.audioContext.close();
 
-    if (this.voiceAgentText) this.voiceAgentText.innerText = 'Talk to Voice Copilot';
+    if (this.voiceAgentText) this.voiceAgentText.innerText = 'Talk to copilot';
     if (this.btnVoiceAgentToggle) {
-      this.btnVoiceAgentToggle.classList.add('bg-indigo-600', 'hover:bg-indigo-500');
-      this.btnVoiceAgentToggle.classList.remove('bg-rose-600', 'hover:bg-rose-500');
+      this.btnVoiceAgentToggle.classList.add('bg-stone-900', 'hover:bg-stone-800');
+      this.btnVoiceAgentToggle.classList.remove('bg-red-700', 'hover:bg-red-600');
     }
 
     if (this.ws) {
@@ -626,7 +662,11 @@ class EchoDocApp {
       alert('Not connected — cannot export yet.');
       return;
     }
-    this.ws.send(JSON.stringify({ action: 'EXPORT_NOTE' }));
+    this.ws.send(JSON.stringify({
+      action: 'EXPORT_NOTE',
+      patientName: 'Eleanor Davis',
+      physicianName: 'Attending Physician'
+    }));
   }
 }
 

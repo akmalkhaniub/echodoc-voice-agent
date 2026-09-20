@@ -174,7 +174,7 @@ export class ClinicalEngine {
 
     // 4. Plan cues (medications, dosing, referrals, follow-up)
     const planPatterns = [
-      /(?:prescribe|start on|order|recommend|take|mg daily|bid|tid|follow up in|schedule an?|refer to|lifestyle modifications|counsel on)/i
+      /(?:prescribe|start (?:you )?on|discontinue|order an?|recommend|mg daily|bid|tid|follow[- ]up in|schedule an?|refer to|lifestyle modifications|counsel on)/i
     ];
     if (planPatterns.some((p) => p.test(cleanText))) {
       const entry = `• ${cleanText.replace(/^(let's|i will|we will)\s*/i, '')}`;

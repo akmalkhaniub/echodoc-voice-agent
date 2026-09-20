@@ -20,9 +20,9 @@
 ## Phase 3: Clinical SOAP Card & Safety Tool (Days 9–11)
 - [x] Implement background structured extractor extracting JSON for SOAP notes in parallel.
 - [x] Add real-time mock drug interaction tool flagging conflicting prescriptions.
-- [~] Build clean, professional medical UI (Next.js 14, Lucide icons, Tailwind). *(static HTML/Tailwind, not Next.js)*
+- [x] Build clean, professional medical UI (Next.js 14, Lucide icons, Tailwind). *(static HTML/Tailwind, not Next.js — clinical dashboard with live/sim badge, HUD, SOAP, barge-in)*
 
 ## Phase 4: Verification, Video Demo & Submission (Days 12–14)
-- [ ] Conduct live mock medical consultation simulating physician-patient conversation.
+- [~] Conduct live mock medical consultation simulating physician-patient conversation. *(Simulate Encounter is wired; live-key recording still pending)*
 - [ ] Record 3-minute video showing real-time transcription, instant voice interruption, and auto-generated SOAP notes.
 - [ ] Submit project to Lablab.ai event before September 30 deadline.

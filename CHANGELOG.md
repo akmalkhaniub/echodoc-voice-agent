@@ -5,6 +5,13 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### L2 demo surface (2026-09-20)
+- WebSocket **HELLO** announces live vs simulator mode; header badge labels it honestly.
+- Interrupt button records barge-in latency when a reply is in flight (same tracker as speech barge-in).
+- Simulate Encounter resets SOAP cards; patient chart matches Mrs. Davis / Eleanor Davis.
+- Voice copilot uses the same AudioWorklet PCM path as the ambient scribe.
+- Keyboard shortcuts (S/M/V/I/E), HUD polling from `/api/health` + `/api/metrics`, not-a-device footer, responsive layout.
+
 ### Migrated to TypeScript (2026-09-18)
 - Ported all server + client + test sources from JavaScript to **TypeScript**
   (`src/*.ts`, `test/*.ts`) with `strict` mode. Public browser assets

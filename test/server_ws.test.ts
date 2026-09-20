@@ -44,10 +44,14 @@ try {
   const metrics = await get(base, '/api/metrics');
   ok('/api/metrics exposes SLO targets', metrics.body.slo.turnaroundP95TargetMs === 1200 && metrics.body.slo.bargeInP95TargetMs === 200);
 
-  // 2. WS: export flow returns a well-formed SOAP note over the socket.
-  console.log('\n2️⃣ WebSocket export flow...');
+  // 2. WS: HELLO announces mock/live mode, then export returns a SOAP note.
+  console.log('\n2️⃣ WebSocket hello + export flow...');
   const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+  const helloP = waitFor(ws, 'HELLO');
   await new Promise<void>((res, rej) => { ws.on('open', () => res()); ws.on('error', rej); });
+  const hello = await helloP;
+  ok('HELLO announces mock mode in the test env', hello.mockMode === true);
+  ok('HELLO includes SLO targets', hello.slo?.turnaroundP95TargetMs === 1200);
   ws.send(JSON.stringify({ action: 'EXPORT_NOTE', patientName: 'Jane Doe' }));
   const exp = await waitFor(ws, 'EXPORT_DATA');
   ok('EXPORT_DATA returns markdown', typeof exp.markdown === 'string');
