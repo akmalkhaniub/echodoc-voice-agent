@@ -1,0 +1,29 @@
+{
+  "measuredAt": "2026-09-24T23:41:19.929Z",
+  "sampleRate": 16000,
+  "sourceSampleRate": 22050,
+  "spokenTurnaroundMs": 1379,
+  "turnaroundMs": {
+    "count": 1,
+    "p50": 1379,
+    "p95": 1379,
+    "min": 1379,
+    "max": 1379,
+    "mean": 1379,
+    "last": 1379
+  },
+  "bargeInMs": {
+    "count": 0,
+    "p50": 0,
+    "p95": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0,
+    "last": null
+  },
+  "slo": {
+    "turnaroundP95TargetMs": 1200,
+    "bargeInP95TargetMs": 200
+  },
+  "note": "Single spoken turn. p95 equals this sample until more turns are recorded."
+}

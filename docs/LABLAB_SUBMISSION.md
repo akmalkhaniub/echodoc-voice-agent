@@ -34,7 +34,7 @@ EchoDoc transforms clinical encounters by deploying a two-way, dual-pipeline Voi
 
 2. **Conversational Diagnostic Copilot (AssemblyAI Voice Agent API v1):**
    - Provides a full-duplex conversational voice assistant with natural speech output (`anna` voice).
-   - Equips clinicians with flat-schema clinical tools (`check_contraindications`, `get_clinical_summary`) executed directly against the local clinical inference engine.
+   - Equips clinicians with flat-schema clinical tools (`update_soap`, `check_contraindications`, `get_clinical_summary`) executed directly against the local clinical inference engine.
    - Features hardware-level barge-in interruptibility: speaking immediately halts assistant audio playback without awkward delays.
 
 3. **Active Pharmacology Safety Sentinel:**

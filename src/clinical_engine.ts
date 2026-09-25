@@ -103,6 +103,34 @@ export class ClinicalEngine {
     this.transcriptHistory = [];
   }
 
+  /**
+   * Write one SOAP line from the Voice Agent (or any explicit tool call).
+   * Returns the stored item, or null when the line is empty or already present.
+   */
+  appendSoap(section: SoapSection, text: string): { section: SoapSection; text: string } | null {
+    const allowed: SoapSection[] = ['subjective', 'objective', 'assessment', 'plan'];
+    if (!allowed.includes(section)) return null;
+    const clean = (text || '').trim();
+    if (!clean) return null;
+    const entry = clean.startsWith('•') ? clean : `• ${clean}`;
+    if (this.soapNotes[section].includes(entry)) return null;
+    this.soapNotes[section].push(entry);
+    return { section, text: entry };
+  }
+
+  /** Persist tool-produced alerts so the chart and export see the same hazard the agent spoke. */
+  ingestAlerts(alerts: SafetyAlert[]): SafetyAlert[] {
+    const fresh: SafetyAlert[] = [];
+    for (const alert of alerts) {
+      const key = alert.key || alert.title;
+      if (this.activeSafetyAlerts.some((a) => a.key === key)) continue;
+      const stored: SafetyAlert = { ...alert, key, detectedAt: alert.detectedAt || new Date().toISOString() };
+      this.activeSafetyAlerts.push(stored);
+      fresh.push(stored);
+    }
+    return fresh;
+  }
+
   /** Check a list of drugs against contraindication rules */
   checkDrugs(drugList: string[] = []): SafetyAlert[] {
     const list = drugList.map((d) => d.toLowerCase().trim());

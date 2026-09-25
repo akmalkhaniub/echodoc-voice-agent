@@ -235,6 +235,11 @@ wss.on('connection', (clientWs: WebSocket) => {
         voiceAgentClient.on('user_transcript_final', (ev: any) => {
           sendToClient('USER_TRANSCRIPT_FINAL', { text: ev.text });
           turnClock?.markUserStop(); // start the turnaround stopwatch
+          const updates = clinicalEngine.processUtterance(ev.text, 'Clinician');
+          if (updates) {
+            if (updates.newSoapItems.length > 0) sendToClient('SOAP_UPDATE', { items: updates.newSoapItems, currentSoap: clinicalEngine.soapNotes });
+            if (updates.newAlerts.length > 0) sendToClient('SAFETY_ALERTS', { alerts: updates.newAlerts });
+          }
         });
         voiceAgentClient.on('agent_reply_started', () => {
           sendToClient('AGENT_REPLY_STARTED');
@@ -257,6 +262,9 @@ wss.on('connection', (clientWs: WebSocket) => {
         voiceAgentClient.on('tool_executed', (ev: any) => {
           sendToClient('TOOL_EXECUTED', { name: ev.name, args: ev.args, result: ev.result });
           sendToClient('SOAP_UPDATE', { currentSoap: clinicalEngine.soapNotes });
+          if (ev.result?.hasHazard && clinicalEngine.activeSafetyAlerts.length > 0) {
+            sendToClient('SAFETY_ALERTS', { alerts: clinicalEngine.activeSafetyAlerts });
+          }
         });
         voiceAgentClient.on('error', (err: Error) => sendToClient('ERROR', { message: err.message }));
         voiceAgentClient.on('reconnecting', (ev: any) => sendToClient('RECONNECTING', { scope: 'agent', ...ev }));
@@ -306,7 +314,11 @@ wss.on('connection', (clientWs: WebSocket) => {
  */
 export function runClinicalSimulation(sendToClient: SendToClient, clinicalEngine: ClinicalEngine): void {
   clinicalEngine.reset();
-  sendToClient('SESSION_STARTED', { isMock: true, message: 'Simulating live medical consultation encounter...' });
+  sendToClient('SESSION_STARTED', {
+    isMock: true,
+    simulated: true,
+    message: 'SIMULATED encounter — scripted Mrs. Davis consult. This is not a live AssemblyAI session.'
+  });
   sendToClient('SOAP_UPDATE', { currentSoap: clinicalEngine.soapNotes, reset: true });
 
   const script: Array<{ speaker: string; partial: string; final: string }> = [

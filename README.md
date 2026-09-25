@@ -59,6 +59,7 @@ The voice loop is instrumented for the metric that decides a real-time agent —
 - `GET /api/metrics` → `{ turnaroundMs, bargeInMs, slo }` with p50/p95/min/max/mean.
 - `GET /api/health` includes the same latency block.
 - **SLO targets:** turnaround **p95 < 1200 ms**, barge-in **p95 < 200 ms**.
+- **Live measurement (2026-09-25):** one spoken turn (Windows TTS, resampled to 16 kHz PCM) against the Voice Agent. Session `sess_ccd84262f2f64e17ae58eba09b5da51a`. First agent audio **1379 ms** after the utterance finished, so this single-sample p95 is **1379 ms** and does **not** yet clear the 1200 ms target. Barge-in was not measured on that turn (no interrupt). Raw JSON: `docs/LIVE_METRICS.json`. Re-run with `npm run measure:live`.
 - Structured JSON logs (`LOG_JSON=true` / `NODE_ENV=production`); `LOG_LEVEL` gates verbosity.
 - Both upstream WebSocket clients auto-reconnect with capped exponential backoff.
 

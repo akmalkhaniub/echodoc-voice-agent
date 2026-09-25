@@ -162,7 +162,7 @@ export class AssemblyAIVoiceAgentClient extends EventEmitter {
     const sessionUpdate = {
       type: 'session.update',
       session: {
-        system_prompt: 'You are EchoDoc, an expert AI clinical diagnostic copilot. You assist doctors during patient consultations by answering clinical queries, reviewing vitals, and checking medication contraindications concisely and accurately. Keep your verbal replies concise, professional, and clinical.',
+        system_prompt: 'You are EchoDoc, an expert AI clinical diagnostic copilot. You assist doctors during patient consultations by answering clinical queries, reviewing vitals, and checking medication contraindications. Keep verbal replies concise and clinical. Whenever a symptom, vital, diagnosis, or plan is stated, call update_soap. Whenever two or more drugs are named, call check_contraindications before you answer. Speak only hazards the tool returns.',
         greeting: 'Hello Doctor, EchoDoc is ready. How can I assist with your consultation today?',
         input: {
           format: { encoding: 'audio/pcm' },
@@ -188,6 +188,26 @@ export class AssemblyAIVoiceAgentClient extends EventEmitter {
                 }
               },
               required: ['drugs']
+            }
+          },
+          {
+            type: 'function',
+            name: 'update_soap',
+            description: 'Append one fact to the live SOAP chart. Call this as soon as a symptom, vital, diagnosis, or plan is stated.',
+            parameters: {
+              type: 'object',
+              properties: {
+                section: {
+                  type: 'string',
+                  enum: ['subjective', 'objective', 'assessment', 'plan'],
+                  description: 'SOAP quadrant to update'
+                },
+                text: {
+                  type: 'string',
+                  description: 'One clinical fact, without a leading bullet'
+                }
+              },
+              required: ['section', 'text']
             }
           },
           {
@@ -251,6 +271,8 @@ export class AssemblyAIVoiceAgentClient extends EventEmitter {
         const drugs: string[] = args.drugs || [];
         if (this.clinicalEngine && typeof this.clinicalEngine.checkDrugs === 'function') {
           const alerts = this.clinicalEngine.checkDrugs(drugs);
+          this.clinicalEngine.ingestAlerts(alerts);
+          for (const drug of drugs) this.clinicalEngine.detectedDrugs.add(String(drug).toLowerCase().trim());
           result = {
             hasHazard: alerts.length > 0,
             alerts: alerts.map((a) => `${a.severity}: ${a.title} - ${a.description}`),
@@ -258,6 +280,15 @@ export class AssemblyAIVoiceAgentClient extends EventEmitter {
           };
         } else {
           result = { hasHazard: false, message: 'Clinical engine not connected', testedDrugs: drugs };
+        }
+      } else if (name === 'update_soap') {
+        const section = args.section;
+        const text = typeof args.text === 'string' ? args.text : '';
+        if (!this.clinicalEngine) {
+          result = { stored: false, message: 'Clinical engine not connected' };
+        } else {
+          const stored = this.clinicalEngine.appendSoap(section, text);
+          result = { stored: Boolean(stored), section, text: stored?.text ?? text };
         }
       } else if (name === 'get_clinical_summary') {
         if (this.clinicalEngine) {

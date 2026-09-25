@@ -39,7 +39,7 @@
 **[Visual: Screen recording of EchoDoc Web Dashboard at `http://localhost:3000` or public URL]**
 
 #### A. Ambient Clinical Scribing
-**[Action: Click "Simulate Encounter" or "Live Ambient Scribe" and speak into mic]**
+**[Action: With the Live AssemblyAI badge showing, click "Talk to copilot" and speak. Use "Simulated encounter" only as a labeled backup — say on camera that it is scripted.]**
 > *"Here is the EchoDoc clinical dashboard. When a consultation begins, audio streams at 16kHz via WebSockets directly to AssemblyAI.
 > Notice how quickly words are transcribed. In under 600 milliseconds, our clinical inference engine parses the dialogue into four structured SOAP quadrants: Subjective symptoms, Objective vitals, Clinical Assessment, and Treatment Plan.*
 >

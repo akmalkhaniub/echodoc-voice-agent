@@ -160,14 +160,21 @@ class EchoDocApp {
   setModeBadge(isMock) {
     this.isMockMode = Boolean(isMock);
     if (!this.modeBadge) return;
+    const placeholder = document.getElementById('feedPlaceholder');
     if (this.isMockMode) {
       this.modeBadge.className = 'inline-flex items-center gap-2 text-[12px] font-medium px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900';
       this.modeBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span>Simulator</span>';
       this.modeBadge.title = 'No AssemblyAI key — SOAP, alerts, and UI run locally. Voice copilot will not hit the live API.';
+      if (placeholder) {
+        placeholder.innerHTML = 'No live key. Use <strong class="text-ink font-medium">Simulated encounter</strong> for the scripted Mrs. Davis walkthrough. It is labeled simulated and does not call AssemblyAI.';
+      }
     } else {
       this.modeBadge.className = 'inline-flex items-center gap-2 text-[12px] font-medium px-3 py-1.5 rounded-full bg-teal-50 border border-teal-200 text-teal-900';
       this.modeBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-teal-700"></span><span>Live AssemblyAI</span>';
       this.modeBadge.title = 'Connected with a real AssemblyAI key. STT and Voice Agent hit live endpoints.';
+      if (placeholder) {
+        placeholder.innerHTML = 'Live key is set. Click <strong class="text-ink font-medium">Talk to copilot</strong> and speak. <strong class="text-ink font-medium">Simulated encounter</strong> is a scripted backup and is not a live session.';
+      }
     }
   }
 
@@ -317,15 +324,15 @@ class EchoDocApp {
     if (this.hudTurnaround && typeof lastTurnaround === 'number') {
       this.hudTurnaround.innerText = fmt(lastTurnaround);
     }
-    if (this.hudP95 && turnaroundSummary) {
+    if (this.hudP95 && turnaroundSummary && turnaroundSummary.count > 0) {
       this.hudP95.innerText = fmt(turnaroundSummary.p95);
       const ok = turnaroundSummary.p95 > 0 && turnaroundSummary.p95 <= this.SLO_TURNAROUND_P95;
-      this.hudP95.className = `font-medium ${ok ? 'text-teal-800' : 'text-amber-800'}`;
+      this.hudP95.className = `font-semibold text-2xl leading-none ${ok ? 'text-teal-800' : 'text-amber-800'}`;
     }
-    if (this.hudBargeIn && bargeInSummary) {
+    if (this.hudBargeIn && bargeInSummary && bargeInSummary.count > 0) {
       this.hudBargeIn.innerText = fmt(bargeInSummary.p95);
       const ok = bargeInSummary.p95 > 0 && bargeInSummary.p95 <= this.SLO_BARGE_IN_P95;
-      this.hudBargeIn.className = `font-medium ${ok ? 'text-teal-800' : 'text-amber-800'}`;
+      this.hudBargeIn.className = `font-semibold text-2xl leading-none ${ok ? 'text-teal-800' : 'text-amber-800'}`;
     }
   }
 
@@ -344,9 +351,8 @@ class EchoDocApp {
 
   appendTranscript(text, speaker) {
     // Clear initial placeholder if present
-    if (this.transcriptContainer.querySelector('.italic')) {
-      this.transcriptContainer.innerHTML = '';
-    }
+    const placeholder = document.getElementById('feedPlaceholder');
+    if (placeholder) placeholder.remove();
 
     const bubble = document.createElement('div');
     const isDoctor = speaker.toLowerCase().includes('doc') || speaker.toLowerCase().includes('clinician');
