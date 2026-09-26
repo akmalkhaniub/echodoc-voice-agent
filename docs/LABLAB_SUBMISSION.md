@@ -42,7 +42,7 @@ EchoDoc transforms clinical encounters by deploying a two-way, dual-pipeline Voi
    - Instantly intercepts lethal combinations (e.g. Warfarin + NSAIDs, Sildenafil + Nitrates) with bright visual alerts and proactive voice warnings before the clinician finishes the consultation.
 
 ### Key Technological Innovations
-- **Sub-600ms Turn Finalization:** Zero perceived latency for live clinical transcription.
+- **Measured Spoken Turnaround:** ~1.38 s to first agent audio on a real single-turn sample (see the Verified Metrics section; target p95 is 1.2 s — honestly reported, not rounded down).
 - **Ephemeral Token Minting:** Browser clients connect securely via short-lived tokens minted by the backend without ever exposing raw API keys.
 - **Graceful Lifecycle Management:** Automatic `{ type: "Terminate" }` protocol preventing orphan WebSocket charges.
 - **One-Click Clinical Markdown Export:** Instant export to standardized markdown notes ready for EHR ingestion.
@@ -51,6 +51,20 @@ EchoDoc transforms clinical encounters by deploying a two-way, dual-pipeline Voi
 ### Conclusion & Impact
 EchoDoc restores humanity to healthcare by allowing doctors to maintain eye contact with their patients while AI handles the documentation and guards patient safety.
 ```
+
+---
+
+### ✅ Verified engineering metrics (measured, not claimed)
+
+| What | Evidence | How to check |
+| :--- | :--- | :--- |
+| **Real spoken turnaround 1379 ms** (first agent audio after utterance end) on a live AssemblyAI sample — misses the 1.2 s p95 target and says so | `docs/LIVE_METRICS.json` | `npm run test:live` (needs `ASSEMBLYAI_API_KEY` + mic) |
+| Clinical engine: SOAP structuring, drug-interaction sentinel (Warfarin+NSAID, Sildenafil+Nitrate), summary tool | `src/clinical_engine.ts`, `test/metrics.test.ts` | `npm test` |
+| Latency/percentile metrics module (p50/p95/min/max/mean) | `src/metrics.ts` | `npm test` |
+| Ephemeral token minting (raw API key never sent to the browser) | `src/server.ts` | `npm test` (server WS suite) |
+| **95.8% line coverage** on the pure-logic modules (WS/server I/O is covered by the live suite) | `.c8rc.json` | `npm run coverage` |
+
+> Honesty note: the turnaround number is a **single** live turn (p95 = that sample until more are recorded), and barge-in latency was not measured on it. There is no deployed public URL; the offline coverage gate scopes to logic modules because the WebSocket I/O paths only run against the live AssemblyAI service.
 
 ---
 
