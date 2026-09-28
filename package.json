@@ -15,6 +15,7 @@
     "test:unit": "tsx test/unit_offline.ts && tsx test/metrics.test.ts",
     "test:live": "tsx test/verify_assemblyai_v3.ts",
     "measure:live": "tsx scripts/measure_live_turn.ts",
+    "capture:reply": "tsx scripts/capture_agent_reply.ts",
     "test:sim": "tsx test/simulate_conversation.ts",
     "fetch:youtube": "tsx scripts/fetch_youtube_audio.ts",
     "docker:build": "docker build -t voxdive:latest .",

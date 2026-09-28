@@ -126,17 +126,31 @@ export class VideoContext {
 
     const q = query.toLowerCase().trim();
 
-    if (/\b(summary|summarize|what.*about|overview|tl;?dr|gist)\b/.test(q)) {
+    // Summary intent: explicit summary words, or "what is this/it/the video about"
+    // — but NOT "what did they say about <topic>", which is a content question.
+    if (/\b(summary|summarize|overview|tl;?dr|gist)\b/.test(q) ||
+        /what(?:'s| is| are)?\s+(?:this|it|the (?:video|podcast|episode|recording))\s+about/.test(q)) {
       return { answer: this.summary || 'No summary is available for this media.', citations: [] };
     }
 
-    if (/\b(chapters?|sections?|topics?|outline)\b/.test(q) && this.chapters.length > 0) {
-      const list = this.chapters.map((c) => `${formatTimestamp(c.start)} — ${c.headline}`).join('; ');
-      return { answer: `This media has ${this.chapters.length} chapters: ${list}.`, citations: [] };
+    // Chapter/outline intent — the question must be about the media's structure,
+    // not merely contain the word "topic".
+    if (/\b(chapters?|outline)\b/.test(q) ||
+        /what (?:topics|sections) (?:are|is|does|were)/.test(q) ||
+        /(?:list|show|give) (?:me )?the (?:topics|sections|chapters)/.test(q)) {
+      if (this.chapters.length > 0) {
+        const list = this.chapters.map((c) => `${formatTimestamp(c.start)} — ${c.headline}`).join('; ');
+        return { answer: `This media has ${this.chapters.length} chapters: ${list}.`, citations: [] };
+      }
     }
 
-    if (/\b(who|speakers?|how many people)\b/.test(q) && this.speakers.length > 0) {
-      return { answer: `${this.speakers.length} speaker(s) were detected: ${this.speakers.join(', ')}.`, citations: [] };
+    // Speakers intent — about the media's speakers, not any question starting "who".
+    if (/\bspeakers?\b/.test(q) ||
+        /how many (?:people|voices|speakers)/.test(q) ||
+        /who(?:'s| is| are)? (?:the )?(?:speaking|talking|the speakers?|in (?:this|the) (?:video|podcast|episode|recording))/.test(q)) {
+      if (this.speakers.length > 0) {
+        return { answer: `${this.speakers.length} speaker(s) were detected: ${this.speakers.join(', ')}.`, citations: [] };
+      }
     }
 
     const hits = this.search(query, 3);

@@ -64,6 +64,9 @@ const riverAns = ctx.answerQuery('how do river interceptors work');
 ok('grounded answer cites a timestamp + speaker', /\d+:\d\d/.test(riverAns.answer) && riverAns.citations.length > 0);
 ok('summary query returns the summary', ctx.answerQuery('what is this about').answer === SAMPLE_TRANSCRIPT.summary);
 ok('off-topic query is honestly declined', ctx.answerQuery('quarterly tax filing deadlines zzz').citations.length === 0);
+// Regression: meta-intent words must not hijack unrelated questions.
+ok('"who painted the mona lisa" is not treated as a speakers question', !/speaker\(s\) were detected/.test(ctx.answerQuery('Who painted the Mona Lisa?').answer));
+ok('"what did they say about X" is a content question, not a summary', ctx.answerQuery('what did they say about the stock market?').answer !== SAMPLE_TRANSCRIPT.summary);
 ok('jumpToTopic locates the drones chapter', /drone/i.test(ctx.jumpToTopic('autonomous drones')?.headline || ''));
 ok('exportMarkdown includes transcript + chapters', ctx.exportMarkdown().includes('## Transcript') && ctx.exportMarkdown().includes('## Chapters'));
 ok('formatTimestamp renders mm:ss', formatTimestamp(92) === '1:32');
