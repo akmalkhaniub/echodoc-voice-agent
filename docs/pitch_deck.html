@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoxDive — Pitch Deck (AssemblyAI Hackathon 2026)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background: #0b1020; color: #f8fafc; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .slide {
+      width: 100%;
+      max-width: 1100px;
+      aspect-ratio: 16 / 9;
+      margin: 2rem auto;
+      border-radius: 1.25rem;
+      border: 1px solid #26264a;
+      background: radial-gradient(circle at top right, #171734 0%, #0b1020 60%);
+      padding: 3.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      page-break-after: always;
+      position: relative;
+      overflow: hidden;
+    }
+    .chip { font-size: 0.7rem; letter-spacing: 0.08em; }
+    @media print {
+      body { background: #0b1020; }
+      .slide { margin: 0; border: none; box-shadow: none; border-radius: 0; width: 100vw; height: 100vh; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body class="p-4 md:p-8">
+
+  <div class="no-print max-w-[1100px] mx-auto mb-6 flex items-center justify-between bg-[#12122a] border border-[#26264a] p-4 rounded-xl">
+    <div>
+      <h3 class="text-sm font-bold text-indigo-400">VoxDive Presentation Deck (16:9)</h3>
+      <p class="text-xs text-slate-400">Press Ctrl+P (or Print) → Save as PDF to export for Lablab.ai.</p>
+    </div>
+    <button onclick="window.print()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg shadow-lg transition">Save / Print to PDF</button>
+  </div>
+
+  <!-- 1. Cover -->
+  <div class="slide">
+    <div class="flex items-center space-x-3">
+      <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/30">▶</div>
+      <span class="chip font-semibold uppercase px-3 py-1 rounded-full bg-indigo-950 border border-indigo-800 text-indigo-300">AssemblyAI Voice Agent Hackathon 2026</span>
+    </div>
+    <div>
+      <h1 class="text-6xl font-extrabold tracking-tight mb-3">VoxDive</h1>
+      <p class="text-2xl text-indigo-200 font-light">Talk to any video or podcast — out loud.</p>
+      <p class="text-base text-slate-400 mt-5 max-w-2xl">Paste a link. VoxDive transcribes, diarizes, and chapters it with AssemblyAI, then lets you have a spoken conversation with the content — answers grounded only in what was actually said, cited by timestamp.</p>
+    </div>
+    <div class="text-sm text-slate-500 mono">Akmal Khan · @akmalkhaniub</div>
+  </div>
+
+  <!-- 2. Problem -->
+  <div class="slide">
+    <span class="chip font-semibold uppercase text-indigo-400">The problem</span>
+    <div>
+      <h2 class="text-4xl font-bold mb-6">Spoken content is a black box.</h2>
+      <div class="grid grid-cols-3 gap-5 text-slate-300">
+        <div class="bg-[#15152e] border border-[#26264a] rounded-xl p-5">
+          <div class="text-3xl font-extrabold text-indigo-300 mb-2">Billions</div>
+          <p class="text-sm">of hours of podcasts, talks, and videos — searchable only by <em>title</em>, not by what was said.</p>
+        </div>
+        <div class="bg-[#15152e] border border-[#26264a] rounded-xl p-5">
+          <div class="text-3xl font-extrabold text-indigo-300 mb-2">Scrubbing</div>
+          <p class="text-sm">To find one claim at minute 34, you drag a timeline and hope. There's no "ask the video."</p>
+        </div>
+        <div class="bg-[#15152e] border border-[#26264a] rounded-xl p-5">
+          <div class="text-3xl font-extrabold text-indigo-300 mb-2">Hallucination</div>
+          <p class="text-sm">Chatbots over transcripts confidently invent answers the recording never contained.</p>
+        </div>
+      </div>
+    </div>
+    <p class="text-slate-500 text-sm">We want to <span class="text-indigo-300 font-medium">ask</span> long-form audio questions — and trust the answer.</p>
+  </div>
+
+  <!-- 3. Solution -->
+  <div class="slide">
+    <span class="chip font-semibold uppercase text-indigo-400">The solution</span>
+    <div>
+      <h2 class="text-4xl font-bold mb-6">VoxDive: a voice agent grounded in the transcript.</h2>
+      <div class="space-y-3 text-slate-200">
+        <div class="flex gap-4 items-start"><div class="mono text-indigo-400 font-bold">1</div><p><strong>Ingest & understand</strong> — async AssemblyAI STT + speaker diarization + auto-chapters + entity detection. You get a diarized transcript, an outline, and a summary automatically.</p></div>
+        <div class="flex gap-4 items-start"><div class="mono text-indigo-400 font-bold">2</div><p><strong>Summarize & answer</strong> — LeMUR (Claude-powered) writes the summary and answers questions from the transcript.</p></div>
+        <div class="flex gap-4 items-start"><div class="mono text-indigo-400 font-bold">3</div><p><strong>Talk to it</strong> — the Voice Agent API turns it into a spoken conversation with turn-detection and barge-in. Every answer flows through a <span class="mono text-indigo-300">search_transcript</span> tool, so it can't answer beyond the recording.</p></div>
+      </div>
+    </div>
+    <p class="text-slate-500 text-sm">Ask about something the video never mentions → it says so, instead of making it up.</p>
+  </div>
+
+  <!-- 4. How it works / architecture -->
+  <div class="slide">
+    <span class="chip font-semibold uppercase text-indigo-400">How it works</span>
+    <div>
+      <h2 class="text-3xl font-bold mb-5">The whole AssemblyAI stack, chained.</h2>
+      <pre class="mono text-[12px] leading-relaxed text-slate-300 bg-[#0d0d22] border border-[#26264a] rounded-xl p-5 overflow-hidden">
+Media URL ─▶ POST /v2/transcript ─▶ diarized segments · auto-chapters · entities
+                                └─▶ LeMUR /lemur/v3/generate/task ─▶ summary + Q&A
+                                            │
+              VideoContext (IDF-weighted retrieval, timestamped, refuses to over-answer)
+                                            │
+        Voice Agent API  wss://agents.assemblyai.com/v1/ws
+          tools: search_transcript · get_summary · jump_to_topic
+          turn detection + barge-in · audio in (16k) ↔ audio out (24k)
+                                            │
+                          Web UI: chapters · transcript · voice + text chat · latency HUD</pre>
+    </div>
+    <p class="text-slate-500 text-sm">STT + diarization + chapters + entities + LeMUR + Voice Agent — one product, not one feature.</p>
+  </div>
+
+  <!-- 5. Why it wins / differentiation -->
+  <div class="slide">
+    <span class="chip font-semibold uppercase text-indigo-400">Why it's different</span>
+    <div>
+      <h2 class="text-4xl font-bold mb-6">Grounding through tools, not vibes.</h2>
+      <div class="grid grid-cols-2 gap-5 text-slate-300">
+        <div class="bg-[#15152e] border border-[#26264a] rounded-xl p-5"><h3 class="font-semibold text-white mb-1">Trustworthy by construction</h3><p class="text-sm">Answers come from a tool that returns real passages with timestamps. No passage, no claim.</p></div>
+        <div class="bg-[#15152e] border border-[#26264a] rounded-xl p-5"><h3 class="font-semibold text-white mb-1">Uses the full platform</h3><p class="text-sm">Most entries use one AssemblyAI feature. VoxDive chains six into a single flow.</p></div>
+        <div class="bg-[#15152e] border border-[#26264a] rounded-xl p-5"><h3 class="font-semibold text-white mb-1">Zero-setup demo</h3><p class="text-sm">No key? A bundled sample transcript makes the whole "talk to a video" flow work offline.</p></div>
+        <div class="bg-[#15152e] border border-[#26264a] rounded-xl p-5"><h3 class="font-semibold text-white mb-1">Universally relatable</h3><p class="text-sm">A judge pastes their own favorite video and talks to it. No domain expertise required.</p></div>
+      </div>
+    </div>
+    <div></div>
+  </div>
+
+  <!-- 6. Proof / metrics -->
+  <div class="slide">
+    <span class="chip font-semibold uppercase text-indigo-400">Proof</span>
+    <div>
+      <h2 class="text-4xl font-bold mb-6">Measured, not claimed.</h2>
+      <div class="grid grid-cols-4 gap-4 text-center">
+        <div class="bg-[#15152e] border border-[#26264a] rounded-xl p-5"><div class="text-3xl font-extrabold text-indigo-300">98%</div><p class="text-xs text-slate-400 mt-1">line coverage on the logic core</p></div>
+        <div class="bg-[#15152e] border border-[#26264a] rounded-xl p-5"><div class="text-3xl font-extrabold text-indigo-300">78</div><p class="text-xs text-slate-400 mt-1">offline assertions passing</p></div>
+        <div class="bg-[#15152e] border border-[#26264a] rounded-xl p-5"><div class="text-3xl font-extrabold text-indigo-300">1379ms</div><p class="text-xs text-slate-400 mt-1">measured voice turnaround (1 sample)</p></div>
+        <div class="bg-[#15152e] border border-[#26264a] rounded-xl p-5"><div class="text-3xl font-extrabold text-indigo-300">TS</div><p class="text-xs text-slate-400 mt-1">strict · CI Node 18/20/22</p></div>
+      </div>
+      <p class="text-sm text-slate-400 mt-6">TypeScript strict; live AssemblyAI paths exercised by <span class="mono">npm run test:live</span>. The 1379 ms turnaround is a single honest sample that misses the 1.2 s target — reported as-is, not rounded down.</p>
+    </div>
+    <p class="text-slate-500 text-sm mono">npm run dev → "Try the sample" → ask it anything</p>
+  </div>
+
+  <!-- 7. Closing -->
+  <div class="slide">
+    <span class="chip font-semibold uppercase text-indigo-400">Stop scrubbing. Just ask.</span>
+    <div>
+      <h2 class="text-5xl font-extrabold tracking-tight mb-4">VoxDive</h2>
+      <p class="text-xl text-indigo-200 font-light max-w-2xl">Any video or podcast becomes a conversation — grounded, cited, and spoken. Built end-to-end on AssemblyAI.</p>
+    </div>
+    <div class="flex items-center justify-between text-sm text-slate-500">
+      <span class="mono">github.com/akmalkhaniub/voxdive</span>
+      <span>Akmal Khan · AssemblyAI Voice Agent Hackathon 2026</span>
+    </div>
+  </div>
+
+</body>
+</html>

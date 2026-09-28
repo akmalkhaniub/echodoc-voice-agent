@@ -1,0 +1,25 @@
+services:
+  voxdive:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: voxdive:latest
+    container_name: voxdive
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - ASSEMBLYAI_API_KEY=${ASSEMBLYAI_API_KEY:-your_assemblyai_api_key_here}
+      - MOCK_STREAMING=${MOCK_STREAMING:-false}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    labels:
+      org.opencontainers.image.title: "VoxDive"
+      org.opencontainers.image.description: "Talk to any video or podcast — AssemblyAI STT + LeMUR + Voice Agent"
+      org.opencontainers.image.version: "1.0.0"
