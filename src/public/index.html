@@ -8,23 +8,10 @@
   <title>VoxDive — Talk to any video</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            paper: '#f5f4fb',
-            ink: '#1e1b2e',
-            mute: '#6b7280',
-            line: '#e2e0f0'
-          },
-          fontFamily: {
-            serif: ['"Fraunces"', 'Georgia', 'serif'],
-            sans: ['"Source Sans 3"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-            mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace']
-          }
-        }
-      }
-    }
+    tailwind.config = { theme: { extend: {
+      colors: { paper: '#f5f4fb', ink: '#1e1b2e', mute: '#6b7280', line: '#e2e0f0' },
+      fontFamily: { serif: ['"Fraunces"','Georgia','serif'], sans: ['"Source Sans 3"','ui-sans-serif','system-ui','sans-serif'], mono: ['"IBM Plex Mono"','ui-monospace','monospace'] }
+    } } }
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -35,28 +22,28 @@
     .brand { font-family: 'Fraunces', Georgia, serif; }
     .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
     :focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; border-radius: 6px; }
-    .card { background: #ffffff; border: 1px solid #e2e0f0; }
-    .feed-scroll::-webkit-scrollbar { width: 8px; }
-    .feed-scroll::-webkit-scrollbar-thumb { background: #cfcde6; border-radius: 8px; }
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
-    }
+    .card { background: #fff; border: 1px solid #e2e0f0; }
+    .scroll::-webkit-scrollbar { width: 8px; }
+    .scroll::-webkit-scrollbar-thumb { background: #cfcde6; border-radius: 8px; }
+    .seg { cursor: pointer; transition: background .15s, border-color .15s; }
+    .seg:hover { background: #eef2ff; }
+    .seg.active { background: #eef2ff; border-color: #a5b4fc !important; box-shadow: inset 3px 0 0 #4f46e5; }
+    .cite { cursor: pointer; }
+    .cite:hover { text-decoration: underline; }
+    .tabbtn.active { color: #4338ca; border-color: #4f46e5; }
+    @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration:.001ms!important; transition-duration:.001ms!important } }
   </style>
 </head>
 <body class="h-full flex flex-col overflow-hidden max-md:h-auto max-md:overflow-auto">
 
   <header class="shrink-0 border-b border-line bg-white">
-    <div class="px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+    <div class="px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
       <div class="flex items-center gap-3 min-w-0">
         <div class="h-9 w-9 rounded-xl bg-indigo-700 text-white flex items-center justify-center" aria-hidden="true">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M15 10l4.55-2.28A1 1 0 0121 8.6v6.8a1 1 0 01-1.45.88L15 14M5 8h8a2 2 0 012 2v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4a2 2 0 012-2z"/></svg>
         </div>
         <div class="min-w-0">
-          <div class="flex items-baseline gap-2">
-            <h1 class="brand text-[1.35rem] leading-none tracking-tight">VoxDive</h1>
-            <span class="text-[11px] tracking-[0.14em] uppercase text-mute">Talk to any video</span>
-          </div>
-          <p class="text-[12px] text-mute mt-0.5">AssemblyAI STT · diarization · auto-chapters · LeMUR · Voice Agent</p>
+          <div class="flex items-baseline gap-2"><h1 class="brand text-[1.3rem] leading-none tracking-tight">VoxDive</h1><span class="text-[11px] tracking-[0.14em] uppercase text-mute">Talk to any video</span></div>
         </div>
       </div>
       <div class="flex items-center gap-3">
@@ -64,74 +51,81 @@
         <span id="connectionStatus" class="inline-flex items-center gap-2 text-[12px] text-mute"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span><span>…</span></span>
       </div>
     </div>
+    <div class="px-6 pb-3 flex flex-wrap items-center gap-2.5">
+      <input id="urlInput" type="url" inputmode="url" placeholder="Paste a video/podcast URL or a YouTube link…" class="flex-1 min-w-[220px] px-4 py-2.5 rounded-xl border border-line bg-white text-[14px] focus:border-indigo-400" />
+      <button id="btnTranscribe" class="px-4 py-2.5 rounded-xl bg-indigo-700 hover:bg-indigo-600 text-white text-[14px] font-medium transition">Transcribe</button>
+      <button id="btnNasaDemo" class="px-4 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 text-[14px] font-medium transition" title="Load a real NASA video (public domain) with real frames">▶ NASA demo</button>
+      <button id="btnLoadSample" class="px-4 py-2.5 rounded-xl border border-line bg-white hover:border-indigo-300 text-[14px] font-medium transition">Sample podcast</button>
+    </div>
   </header>
 
-  <!-- Source bar -->
-  <div class="shrink-0 border-b border-line bg-white/70">
-    <div class="px-6 py-3 flex flex-wrap items-center gap-3">
-      <input id="urlInput" type="url" inputmode="url" placeholder="Paste a media URL (audio/video) or a YouTube link…" class="flex-1 min-w-[240px] px-4 py-2.5 rounded-xl border border-line bg-white text-[14px] focus:border-indigo-400" />
-      <button id="btnTranscribe" class="px-4 py-2.5 rounded-xl bg-indigo-700 hover:bg-indigo-600 text-white text-[14px] font-medium transition">Transcribe</button>
-      <button id="btnLoadSample" class="px-4 py-2.5 rounded-xl border border-line bg-white hover:border-indigo-300 text-[14px] font-medium transition">Try the sample</button>
-    </div>
-  </div>
+  <main class="flex-1 min-h-0 grid md:grid-cols-[minmax(380px,4fr)_5fr] max-md:grid-cols-1">
+    <!-- LEFT: media + chapters -->
+    <aside class="border-r border-line bg-white/50 overflow-y-auto scroll p-5 space-y-4">
+      <div id="mediaHero" class="rounded-2xl overflow-hidden bg-slate-900 aspect-video flex items-center justify-center text-slate-400 text-[13px]">No media loaded</div>
+      <div>
+        <h2 class="brand text-lg leading-tight" id="mediaTitle">No video loaded</h2>
+        <p class="text-[12px] text-mute mono mt-0.5" id="mediaMeta">Paste a URL, load the NASA demo, or try the sample</p>
+        <div id="speakerChips" class="flex flex-wrap gap-1.5 mt-2"></div>
+      </div>
 
-  <main class="flex-1 min-h-0 grid md:grid-cols-[340px_1fr] max-md:grid-cols-1">
-    <!-- Left rail -->
-    <aside class="border-r border-line bg-white/50 overflow-y-auto feed-scroll p-5 space-y-5">
-      <section>
-        <h2 class="brand text-lg mb-1" id="mediaTitle">No video loaded</h2>
-        <p class="text-[12px] text-mute mono" id="mediaMeta">Paste a URL above or load the sample</p>
-      </section>
+      <details class="card rounded-2xl p-4" open>
+        <summary class="text-[11px] uppercase tracking-wide text-mute cursor-pointer select-none">Summary</summary>
+        <p id="summaryText" class="text-[13px] leading-relaxed italic text-mute mt-2">The summary appears here once a video is transcribed.</p>
+      </details>
 
-      <section class="card rounded-2xl p-4">
-        <h3 class="text-[11px] uppercase tracking-wide text-mute mb-2">Summary</h3>
-        <p id="summaryText" class="text-[13px] leading-relaxed italic text-mute">The summary will appear here once a video is transcribed.</p>
-      </section>
-
-      <section>
+      <div>
         <h3 class="text-[11px] uppercase tracking-wide text-mute mb-2">Chapters</h3>
         <div id="chaptersList" class="space-y-2"><p class="text-[13px] text-mute italic">Chapters appear after transcription…</p></div>
-      </section>
+      </div>
 
-      <section class="card rounded-2xl p-4">
+      <div class="card rounded-2xl p-4">
         <h3 class="text-[11px] uppercase tracking-wide text-mute mb-2">Voice latency</h3>
         <div class="grid grid-cols-3 gap-2 text-center">
-          <div><div id="hudTurnaround" class="font-semibold text-2xl leading-none text-ink">—</div><div class="text-[10px] text-mute mt-1">last turn</div></div>
-          <div><div id="hudP95" class="font-semibold text-2xl leading-none text-ink">—</div><div class="text-[10px] text-mute mt-1">p95 (≤1.2s)</div></div>
-          <div><div id="hudBargeIn" class="font-semibold text-2xl leading-none text-ink">—</div><div class="text-[10px] text-mute mt-1">barge-in</div></div>
+          <div><div id="hudTurnaround" class="font-semibold text-xl leading-none text-ink">—</div><div class="text-[10px] text-mute mt-1">last turn</div></div>
+          <div><div id="hudP95" class="font-semibold text-xl leading-none text-ink">—</div><div class="text-[10px] text-mute mt-1">p95</div></div>
+          <div><div id="hudBargeIn" class="font-semibold text-xl leading-none text-ink">—</div><div class="text-[10px] text-mute mt-1">barge-in</div></div>
         </div>
-        <canvas id="audioVisualizer" width="300" height="48" class="w-full mt-3 rounded-lg"></canvas>
-      </section>
+        <canvas id="audioVisualizer" width="300" height="40" class="w-full mt-3 rounded-lg"></canvas>
+      </div>
     </aside>
 
-    <!-- Conversation column -->
+    <!-- RIGHT: conversation / transcript -->
     <section class="flex flex-col min-h-0">
-      <div class="shrink-0 px-6 py-3 border-b border-line bg-white/60 flex flex-wrap items-center gap-3">
-        <button id="btnVoiceAgentToggle" disabled class="px-4 py-2.5 rounded-xl bg-indigo-700 hover:bg-indigo-600 text-white text-[14px] font-medium transition opacity-50 cursor-not-allowed inline-flex items-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M19 11a7 7 0 01-14 0m7 7v3m-4 0h8M12 3a3 3 0 00-3 3v5a3 3 0 006 0V6a3 3 0 00-3-3z"/></svg>
-          <span id="voiceAgentText">Talk to this video</span>
-        </button>
-        <button id="btnBargeIn" class="px-3 py-2.5 rounded-xl border border-line bg-white hover:border-indigo-300 text-[13px] transition" title="Interrupt the agent (barge-in)">Interrupt</button>
-        <button id="btnExport" disabled class="px-3 py-2.5 rounded-xl border border-line bg-white hover:border-indigo-300 text-[13px] transition opacity-50" title="Download transcript + summary as Markdown">Export</button>
-        <span class="text-[12px] text-mute ml-auto">Grounded in the transcript — it won't answer beyond what was said.</span>
-      </div>
-
-      <div id="transcriptContainer" class="flex-1 min-h-0 overflow-y-auto feed-scroll px-6 py-4 space-y-3">
-        <div class="text-center text-[13px] text-mute py-10">
-          Paste a URL and hit <strong class="text-ink font-medium">Transcribe</strong>, or click <strong class="text-ink font-medium">Try the sample</strong> to load a demo podcast — then ask it questions by text or voice.
+      <div class="shrink-0 px-5 pt-3 border-b border-line bg-white/60">
+        <div class="flex items-center gap-4">
+          <button id="tabConversation" class="tabbtn active text-[14px] font-semibold pb-2 border-b-2 text-mute">Conversation</button>
+          <button id="tabTranscript" class="tabbtn text-[14px] font-semibold pb-2 border-b-2 border-transparent text-mute">Transcript</button>
+          <div class="ml-auto flex items-center gap-2 pb-2">
+            <button id="btnVoiceAgentToggle" disabled class="px-3.5 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-600 text-white text-[13px] font-medium transition opacity-50 cursor-not-allowed inline-flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M19 11a7 7 0 01-14 0m7 7v3m-4 0h8M12 3a3 3 0 00-3 3v5a3 3 0 006 0V6a3 3 0 00-3-3z"/></svg>
+              <span id="voiceAgentText">Talk</span>
+            </button>
+            <button id="btnBargeIn" class="px-3 py-2 rounded-xl border border-line bg-white hover:border-indigo-300 text-[13px] transition" title="Interrupt (barge-in)">Interrupt</button>
+            <button id="btnExport" disabled class="px-3 py-2 rounded-xl border border-line bg-white hover:border-indigo-300 text-[13px] transition opacity-50" title="Export transcript">Export</button>
+          </div>
         </div>
       </div>
 
-      <div id="partialBox" class="hidden shrink-0 px-6 py-2 border-t border-line bg-indigo-50/50">
-        <p id="partialText" class="text-[13px] text-indigo-800 italic"></p>
+      <!-- Conversation tab -->
+      <div id="conversationPanel" class="flex-1 min-h-0 flex flex-col">
+        <div id="chatContainer" class="flex-1 min-h-0 overflow-y-auto scroll px-5 py-4 space-y-3">
+          <div class="text-center text-[13px] text-mute py-10 px-4">
+            Load a video, then <strong class="text-ink font-medium">ask it anything</strong> by text or voice. Answers are grounded in the transcript and cite the moment — click a timestamp to jump the player there.
+          </div>
+        </div>
+        <div id="partialBox" class="hidden shrink-0 px-5 py-2 border-t border-line bg-indigo-50/50"><p id="partialText" class="text-[13px] text-indigo-800 italic"></p></div>
+        <div id="copilotAnswer" class="hidden shrink-0 mx-5 mb-2 p-3 rounded-xl border border-violet-100 bg-violet-50/50 text-ink"></div>
+        <form id="copilotForm" class="shrink-0 px-5 py-3 border-t border-line bg-white flex items-center gap-3">
+          <input id="copilotInput" type="text" placeholder="Ask about the video…" class="flex-1 px-4 py-2.5 rounded-xl border border-line bg-white text-[14px] focus:border-indigo-400" />
+          <button type="submit" class="px-4 py-2.5 rounded-xl bg-ink hover:bg-indigo-900 text-white text-[14px] font-medium transition">Ask</button>
+        </form>
       </div>
 
-      <div id="copilotAnswer" class="hidden shrink-0 mx-6 mb-2 p-3 rounded-xl border border-violet-100 bg-violet-50/50 text-ink"></div>
-
-      <form id="copilotForm" class="shrink-0 px-6 py-3 border-t border-line bg-white flex items-center gap-3">
-        <input id="copilotInput" type="text" placeholder="Ask about the video…  e.g. “how do river interceptors work?”" class="flex-1 px-4 py-2.5 rounded-xl border border-line bg-white text-[14px] focus:border-indigo-400" />
-        <button type="submit" class="px-4 py-2.5 rounded-xl bg-ink hover:bg-indigo-900 text-white text-[14px] font-medium transition">Ask</button>
-      </form>
+      <!-- Transcript tab -->
+      <div id="transcriptPanel" class="hidden flex-1 min-h-0 overflow-y-auto scroll px-5 py-4 space-y-2">
+        <p class="text-[13px] text-mute italic">The diarized transcript appears here. Click any line to jump the player; the current line highlights as it plays.</p>
+      </div>
     </section>
   </main>
 

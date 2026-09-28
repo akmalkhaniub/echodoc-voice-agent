@@ -8,6 +8,7 @@ import { AssemblyAIVoiceAgentClient } from './voice_agent_client.js';
 import { VideoContext } from './video_context.js';
 import { TranscriptService } from './transcript_service.js';
 import { SAMPLE_TRANSCRIPT } from './sample_content.js';
+import { NASA_DEMO } from './nasa_demo_content.js';
 import { resolveSafePath, isMockMode } from './util.js';
 import { LatencyTracker, TurnClock } from './metrics.js';
 import { log } from './logger.js';
@@ -109,7 +110,11 @@ const server = http.createServer((req, res) => {
     '.json': 'application/json; charset=utf-8',
     '.svg': 'image/svg+xml',
     '.png': 'image/png',
-    '.jpg': 'image/jpeg'
+    '.jpg': 'image/jpeg',
+    '.mp4': 'video/mp4',
+    '.webm': 'video/webm',
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav'
   };
 
   fs.readFile(filePath, (err, content) => {
@@ -194,6 +199,9 @@ wss.on('connection', (clientWs: WebSocket) => {
       } else if (msg.action === 'LOAD_SAMPLE') {
         videoContext.load({ ...SAMPLE_TRANSCRIPT });
         sendTranscriptReady('sample');
+      } else if (msg.action === 'LOAD_NASA_DEMO') {
+        videoContext.load({ ...NASA_DEMO });
+        sendTranscriptReady('nasa');
       } else if (msg.action === 'START_VOICE_AGENT') {
         if (!videoContext.hasTranscript) {
           sendToClient('ERROR', { scope: 'agent', message: 'Load a video transcript before starting the voice agent.' });
