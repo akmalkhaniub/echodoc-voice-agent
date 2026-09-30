@@ -10,7 +10,7 @@
 > **Built for the [AssemblyAI Voice Agent Hackathon (Lablab.ai)](https://lablab.ai/event/assemblyai-voice-agent)**  
 > *Submission Deadline: September 30, 2026*
 
-VoxDive turns any video or podcast into something you can **have a spoken conversation with**. Paste a media URL (or a YouTube link) and VoxDive uses AssemblyAI's async **Speech-to-Text + speaker diarization + auto-chapters** to transcribe it, **LeMUR** (Claude-powered) to summarize and answer questions, and the **Voice Agent API** to let you talk to the content out loud — ask questions, get answers grounded *only* in what was actually said, with timestamp citations and barge-in. Every spoken answer flows through a tool (`search_transcript`) so the agent can't invent things the recording never covered.
+**Talk to your team's video knowledge.** Every company records hours of trainings, webinars and all-hands that nobody rewatches — knowledge captured, then trapped. VoxDive turns that video into something employees can **ask**: point it at a recording and AssemblyAI's async **Speech-to-Text + speaker diarization + auto-chapters** transcribe it, **LeMUR** (Claude-powered) summarizes and answers questions, and the **Voice Agent API** lets you talk to it out loud — answers grounded *only* in what was actually said, **cited to the exact moment** (click to jump the video there), with barge-in. Every spoken answer flows through a `search_transcript` tool, so it can't invent things the recording never covered — which is exactly what a training/compliance buyer needs. (It works on any video or podcast; enterprise recorded knowledge is the wedge.)
 
 ---
 

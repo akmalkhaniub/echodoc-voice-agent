@@ -1,6 +1,8 @@
 # VoxDive submission notes
 
-Paste into Lablab. Deadline 30 Sep 2026. Full form copy is in `LABLAB_SUBMISSION.md`.
+**Positioning:** *Talk to your team's video knowledge* — the enterprise recorded-knowledge wedge (trainings, webinars, all-hands). Grounded, timestamp-cited answers = training/compliance-safe. Full form copy is in `LABLAB_SUBMISSION.md`.
+
+Paste into Lablab. Deadline 30 Sep 2026, 8:00 PM PST.
 
 ## What a judge can run today
 
@@ -9,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000. Click **Try the sample** to load a bundled podcast transcript and immediately ask it questions (works with no key). With `ASSEMBLYAI_API_KEY` set, the badge reads **Live AssemblyAI**: paste a real media URL to transcribe it for real, and the voice agent + LeMUR answers go live.
+Open http://localhost:3000. Click **▶ NASA demo** to load a real public-domain training video (transcribed by AssemblyAI — 4 diarized speakers, chapters, summary), then ask it questions and click the timestamp citations to jump the player. **Sample podcast** runs the whole flow offline with no key. With `ASSEMBLYAI_API_KEY` set, paste any media URL to transcribe it live.
 
 ## What's real vs. simulated
 

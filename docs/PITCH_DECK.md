@@ -8,8 +8,8 @@
 ---
 
 ## Slide 1: Cover & Mission
-* **Product:** VoxDive
-* **Tagline:** Talk to any video or podcast — answers grounded only in what was actually said, cited by timestamp.
+* **Product:** VoxDive — Talk to Your Team's Video Knowledge
+* **Tagline:** Turn the trainings, webinars and all-hands nobody rewatches into something employees can ask — answers grounded only in what was said, cited to the moment.
 * **Core Technology:** AssemblyAI async STT + Speaker Diarization + Auto-Chapters + Entity Detection + LeMUR + Voice Agent API.
 * **Author:** Akmal Khan (@akmalkhaniub)
 * **Repo:** https://github.com/akmalkhaniub/voxdive
@@ -17,9 +17,9 @@
 ---
 
 ## Slide 2: The Problem
-* **Spoken content is a black box.** Billions of hours of podcasts, talks, and videos are searchable only by title — not by what was said.
-* **Scrubbing timelines.** To find one claim at minute 34, you drag a slider and hope.
-* **Hallucination.** Naïve chatbots over transcripts confidently invent answers the recording never contained.
+* **Knowledge trapped in video.** Companies record hours of trainings, webinars and all-hands — expensive to make, almost never rewatched, searchable only by title.
+* **Buried at minute 34.** "What's our refund policy again?" sits deep in a two-hour recording no new hire will scrub through.
+* **Trust.** In training/compliance, a chatbot that hallucinates an answer is worse than no answer. Meeting tools cover live calls; video platforms only store — nobody lets you *ask the library*.
 
 ---
 
