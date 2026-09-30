@@ -159,7 +159,8 @@ export class VideoContext {
     }
 
     const top = hits[0];
-    const answer = `At ${formatTimestamp(top.start)}, ${top.speaker} said: "${top.text}"`;
+    const quote = top.text.length > 180 ? top.text.slice(0, 180).trim() + '…' : top.text;
+    const answer = `At ${formatTimestamp(top.start)}, ${top.speaker} said: "${quote}"`;
     return {
       answer,
       citations: hits.map((h) => ({ start: h.start, end: h.end, speaker: h.speaker, text: h.text }))

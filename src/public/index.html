@@ -60,9 +60,9 @@
     </div>
   </header>
 
-  <main class="flex-1 min-h-0 grid md:grid-cols-[minmax(380px,4fr)_5fr] max-md:grid-cols-1">
+  <main id="mainGrid" class="flex-1 min-h-0 grid md:grid-cols-[minmax(360px,4fr)_5fr] max-md:grid-cols-1">
     <!-- LEFT: media + chapters -->
-    <aside class="border-r border-line bg-white/50 overflow-y-auto scroll p-5 space-y-4">
+    <aside id="leftRail" class="border-r border-line bg-white/50 overflow-y-auto scroll p-5 space-y-4">
       <div id="mediaHero" class="rounded-2xl overflow-hidden bg-slate-900 aspect-video flex items-center justify-center text-slate-400 text-[13px]">No media loaded</div>
       <div>
         <h2 class="brand text-lg leading-tight" id="mediaTitle">No video loaded</h2>
@@ -95,6 +95,9 @@
     <section class="flex flex-col min-h-0">
       <div class="shrink-0 px-5 pt-3 border-b border-line bg-white/60">
         <div class="flex items-center gap-4">
+          <button id="btnCollapse" class="text-mute hover:text-indigo-700 pb-2 -ml-1" title="Collapse the side panel for more space">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M15 19l-7-7 7-7"/></svg>
+          </button>
           <button id="tabConversation" class="tabbtn active text-[14px] font-semibold pb-2 border-b-2 text-mute">Conversation</button>
           <button id="tabTranscript" class="tabbtn text-[14px] font-semibold pb-2 border-b-2 border-transparent text-mute">Transcript</button>
           <div class="ml-auto flex items-center gap-2 pb-2">

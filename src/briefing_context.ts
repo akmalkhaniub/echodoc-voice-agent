@@ -84,7 +84,8 @@ export class BriefingContext {
       return { answer: `None of the ${this.count} videos in this briefing cover that. Ask about one of them, or rephrase.`, citations: [] };
     }
     const top = hits[0];
-    const answer = `In “${top.videoTitle}” at ${formatTimestamp(top.start)}, ${top.speaker} said: “${top.text}”`;
+    const quote = top.text.length > 180 ? top.text.slice(0, 180).trim() + '…' : top.text;
+    const answer = `In “${top.videoTitle}” at ${formatTimestamp(top.start)}, ${top.speaker} said: “${quote}”`;
     return { answer, citations: hits };
   }
 

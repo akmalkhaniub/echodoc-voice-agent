@@ -31,6 +31,7 @@ class VoxDiveApp {
     this.mediaHero = $('mediaHero'); this.mediaTitle = $('mediaTitle'); this.mediaMeta = $('mediaMeta'); this.speakerChips = $('speakerChips');
     this.summaryText = $('summaryText'); this.chaptersList = $('chaptersList');
     this.tabConversation = $('tabConversation'); this.tabTranscript = $('tabTranscript');
+    this.btnCollapse = $('btnCollapse'); this.mainGrid = $('mainGrid'); this.leftRail = $('leftRail'); this.collapsed = false;
     this.conversationPanel = $('conversationPanel'); this.transcriptPanel = $('transcriptPanel');
     this.chatContainer = $('chatContainer'); this.partialBox = $('partialBox'); this.partialText = $('partialText');
     this.copilotAnswer = $('copilotAnswer'); this.copilotForm = $('copilotForm'); this.copilotInput = $('copilotInput');
@@ -64,6 +65,7 @@ class VoxDiveApp {
     this.btnNasaDemo.addEventListener('click', () => this.send({ action: 'LOAD_NASA_DEMO' }, true));
     this.btnBriefing.addEventListener('click', () => this.send({ action: 'LOAD_BRIEFING' }, true));
     this.btnLoadSample.addEventListener('click', () => this.send({ action: 'RUN_SIMULATION' }, true));
+    this.btnCollapse.addEventListener('click', () => this.toggleSidebar());
     this.tabConversation.addEventListener('click', () => this.switchTab('conversation'));
     this.tabTranscript.addEventListener('click', () => this.switchTab('transcript'));
     this.btnVoiceAgentToggle.addEventListener('click', () => this.toggleVoiceAgent());
@@ -79,6 +81,16 @@ class VoxDiveApp {
   send(obj, resetFirst) { if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return; if (resetFirst) this.resetContent(); this.ws.send(JSON.stringify(obj)); }
 
   ingestUrl() { const u = this.urlInput.value.trim(); if (!u) { this.send({ action: 'LOAD_NASA_DEMO' }, true); return; } this.send({ action: 'INGEST_VIDEO', url: u }, true); }
+
+  toggleSidebar() {
+    this.collapsed = !this.collapsed;
+    this.leftRail.classList.toggle('hidden', this.collapsed);
+    this.mainGrid.classList.toggle('md:grid-cols-[minmax(360px,4fr)_5fr]', !this.collapsed);
+    this.mainGrid.classList.toggle('md:grid-cols-1', this.collapsed);
+    // flip the chevron
+    this.btnCollapse.querySelector('path').setAttribute('d', this.collapsed ? 'M9 5l7 7-7 7' : 'M15 19l-7-7 7-7');
+    this.btnCollapse.title = this.collapsed ? 'Show the side panel' : 'Collapse the side panel for more space';
+  }
 
   switchTab(which) {
     const conv = which === 'conversation';
@@ -105,7 +117,7 @@ class VoxDiveApp {
       case 'AGENT_TRANSCRIPT': this.hidePartial(); this.appendChat(msg.text, 'VoxDive'); break;
       case 'AGENT_REPLY_DONE': this.hidePartial(); if (msg.interrupted) this.stopAudioPlayback(); break;
       case 'TOOL_EXECUTED': this.appendSystem(`🛠️ ${msg.name}(${msg.args?.query || msg.args?.topic || ''})`); break;
-      case 'COPILOT_ANSWER': this.showAnswer(msg.answer, msg.citations || [], msg.engine); this.appendChat(msg.answer, 'VoxDive', msg.citations || []); break;
+      case 'COPILOT_ANSWER': this.appendChat(msg.answer, 'VoxDive', msg.citations || [], msg.engine); break;
       case 'INTERRUPTED': this.stopAudioPlayback(); if (msg.summary) this.renderLatencyHud(null, msg.summary); break;
       case 'LATENCY': this.renderLatencyHud(msg.summary, null, msg.turnaroundMs); break;
       case 'SIMULATION_COMPLETED': break;
@@ -284,11 +296,12 @@ class VoxDiveApp {
     const el = document.createElement('div'); el.className = 'text-center text-[12px] text-mute py-1.5'; el.innerText = text;
     this.chatContainer.appendChild(el); this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
   }
-  appendChat(text, who, citations) {
+  appendChat(text, who, citations, engine) {
     const isYou = who === 'You', isAgent = who === 'VoxDive';
     const bubble = document.createElement('div');
     bubble.className = `px-4 py-2.5 rounded-2xl border ${isYou ? 'bg-indigo-50/70 border-indigo-100' : isAgent ? 'bg-violet-50/70 border-violet-100' : 'bg-white border-line'}`;
-    bubble.innerHTML = `<div class="text-[12px] mb-0.5 font-semibold ${isYou ? 'text-indigo-800' : isAgent ? 'text-violet-800' : 'text-slate-700'}">${who}</div><p class="text-[14px] leading-relaxed">${text}</p>`;
+    const badge = engine ? `<span class="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 ml-2">${engine === 'lemur' ? 'LeMUR' : 'grounded'}</span>` : '';
+    bubble.innerHTML = `<div class="text-[12px] mb-0.5 font-semibold ${isYou ? 'text-indigo-800' : isAgent ? 'text-violet-800' : 'text-slate-700'}">${who}${badge}</div><p class="text-[14px] leading-relaxed">${text}</p>`;
     if (citations && citations.length) bubble.appendChild(this.citeRow(citations));
     this.chatContainer.appendChild(bubble); this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
   }
