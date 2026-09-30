@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import { EventEmitter } from 'events';
 import type { VideoContext } from './video_context.js';
+import type { BriefingContext } from './briefing_context.js';
 import { formatTimestamp } from './video_context.js';
 import { computeBackoff } from './util.js';
 import { log } from './logger.js';
@@ -9,6 +10,7 @@ export interface VoiceAgentOptions {
   token?: string | null;
   voice?: string;
   videoContext?: VideoContext | null;
+  briefingContext?: BriefingContext | null;
   isMock?: boolean;
   connectTimeoutMs?: number;
   autoReconnect?: boolean;
@@ -31,6 +33,7 @@ export class AssemblyAIVoiceAgentClient extends EventEmitter {
   token: string | null;
   voice: string;
   videoContext: VideoContext | null;
+  briefingContext: BriefingContext | null;
   ws: WebSocket | null;
   isConnected: boolean;
   sessionId: string | null;
@@ -48,6 +51,7 @@ export class AssemblyAIVoiceAgentClient extends EventEmitter {
     this.token = options.token || null;
     this.voice = options.voice || 'anna';
     this.videoContext = options.videoContext || null;
+    this.briefingContext = options.briefingContext || null;
     this.ws = null;
     this.isConnected = false;
     this.sessionId = null;
@@ -160,6 +164,32 @@ export class AssemblyAIVoiceAgentClient extends EventEmitter {
   sendSessionUpdate(): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
+    // Briefing mode: grounded across several source videos.
+    if (this.briefingContext) {
+      const titles = this.briefingContext.videos.map((v) => v.title).join('; ');
+      this.ws.send(JSON.stringify({
+        type: 'session.update',
+        session: {
+          system_prompt:
+            `You are VoxDive, a briefing assistant. You cover ${this.briefingContext.count} videos: ${titles}. ` +
+            'Open by delivering the briefing (call get_briefing). Then answer questions by calling search_briefing FIRST and basing your answer only on what it returns. ' +
+            'Always say WHICH video and the timestamp your answer comes from. If nothing relevant is returned, say none of the videos cover it rather than guessing. Keep replies short since they are read aloud.',
+          greeting: `VoxDive here with your briefing across ${this.briefingContext.count} videos. Say "catch me up" for the rundown, or ask me anything about them.`,
+          input: {
+            format: { encoding: 'audio/pcm' },
+            keyterms: this.briefingContext.videos.flatMap((v) => v.entities).slice(0, 12),
+            turn_detection: { vad_threshold: 0.5, min_silence: 200, max_silence: 1000, interrupt_response: true }
+          },
+          output: { voice: this.voice, format: { encoding: 'audio/pcm' } },
+          tools: [
+            { type: 'function', name: 'search_briefing', description: 'Search across ALL videos in the briefing and return the most relevant passages with their source video title and timestamp. Call before answering any content question.', parameters: { type: 'object', properties: { query: { type: 'string', description: 'What to look for' } }, required: ['query'] } },
+            { type: 'function', name: 'get_briefing', description: 'Get the cross-video briefing: a lead line plus a summary of each source video.', parameters: { type: 'object', properties: {} } }
+          ]
+        }
+      }));
+      return;
+    }
+
     const title = this.videoContext?.title || 'the loaded media';
     const sessionUpdate = {
       type: 'session.update',
@@ -250,6 +280,22 @@ export class AssemblyAIVoiceAgentClient extends EventEmitter {
     let result: Record<string, any> = { status: 'success' };
 
     try {
+      // Briefing mode tools (cross-video).
+      if (this.briefingContext) {
+        if (name === 'search_briefing') {
+          const hits = this.briefingContext.search(typeof args.query === 'string' ? args.query : '', 4);
+          result = {
+            grounded: hits.length > 0,
+            passages: hits.map((h) => ({ video: h.videoTitle, timestamp: formatTimestamp(h.start), speaker: h.speaker, text: h.text })),
+            message: hits.length > 0 ? undefined : 'None of the videos in the briefing cover that.'
+          };
+        } else if (name === 'get_briefing') {
+          result = { grounded: true, count: this.briefingContext.count, briefing: this.briefingContext.briefingText() };
+        }
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ type: 'tool.result', call_id, result: JSON.stringify(result) }));
+        this.emit('tool_executed', { name, args, result });
+        return;
+      }
       if (!this.videoContext || !this.videoContext.hasTranscript) {
         result = { grounded: false, message: 'No transcript is loaded yet.' };
       } else if (name === 'search_transcript') {

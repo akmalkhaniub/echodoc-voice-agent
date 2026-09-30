@@ -187,4 +187,29 @@ export class TranscriptService {
     return null;
     /* c8 ignore stop */
   }
+
+  /**
+   * Ask a grounded question ACROSS several live transcripts via LeMUR (for a briefing).
+   * Returns null on any failure so the caller can fall back to local cross-video retrieval.
+   */
+  async askMany(transcriptIds: string[], question: string): Promise<string | null> {
+    if (this.isMock || transcriptIds.length === 0) return null;
+    /* c8 ignore start - live LeMUR network path; exercised by npm run test:live */
+    try {
+      const resp = await fetch(`${API_BASE}/lemur/v3/generate/task`, {
+        method: 'POST',
+        headers: { Authorization: this.apiKey as string, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcript_ids: transcriptIds,
+          prompt: `You are briefing someone across ${transcriptIds.length} videos. Answer using ONLY these transcripts, and name which video the answer comes from. If none cover it, say so. Two sentences, conversational, read aloud. Question: ${question}`
+        })
+      });
+      const data: any = await resp.json().catch(() => ({}));
+      if (resp.ok && data.response) return String(data.response).trim();
+    } catch (err) {
+      log.warn('lemur_askmany_error', { message: (err as Error).message });
+    }
+    return null;
+    /* c8 ignore stop */
+  }
 }

@@ -9,6 +9,8 @@ import { VideoContext } from './video_context.js';
 import { TranscriptService } from './transcript_service.js';
 import { SAMPLE_TRANSCRIPT } from './sample_content.js';
 import { NASA_DEMO } from './nasa_demo_content.js';
+import { BriefingContext } from './briefing_context.js';
+import { BRIEFING_FEED } from './briefing_content.js';
 import { resolveSafePath, isMockMode } from './util.js';
 import { LatencyTracker, TurnClock } from './metrics.js';
 import { log } from './logger.js';
@@ -139,6 +141,7 @@ wss.on('connection', (clientWs: WebSocket) => {
   const transcriptService = new TranscriptService(process.env.ASSEMBLYAI_API_KEY);
   let voiceAgentClient: AssemblyAIVoiceAgentClient | null = null;
   let turnClock: TurnClock | null = null;
+  let briefingContext: BriefingContext | null = null;   // set in briefing mode
 
   const sendToClient: SendToClient = (type, payload = {}) => {
     if (clientWs.readyState === WebSocket.OPEN) {
@@ -170,6 +173,18 @@ wss.on('connection', (clientWs: WebSocket) => {
     });
   };
 
+  const sendBriefingReady = () => {
+    if (!briefingContext) return;
+    sendToClient('BRIEFING_READY', {
+      count: briefingContext.count,
+      briefing: briefingContext.briefingText(),
+      videos: briefingContext.videos.map((v) => ({
+        id: v.id, title: v.title, sourceUrl: v.sourceUrl, durationSec: v.durationSec,
+        summary: v.summary, speakers: v.speakers, chapters: v.chapters, segments: v.segments, entities: v.entities
+      }))
+    });
+  };
+
   clientWs.on('message', async (data: WebSocket.RawData, isBinary: boolean) => {
     if (isBinary) {
       // Only the voice agent consumes mic audio.
@@ -181,6 +196,7 @@ wss.on('connection', (clientWs: WebSocket) => {
       const msg = JSON.parse(data.toString());
 
       if (msg.action === 'INGEST_VIDEO') {
+        briefingContext = null;
         const url = String(msg.url || '').trim();
         sendToClient('TRANSCRIBING', {
           url,
@@ -197,24 +213,30 @@ wss.on('connection', (clientWs: WebSocket) => {
           sendToClient('ERROR', { scope: 'ingest', message: (err as Error).message });
         }
       } else if (msg.action === 'LOAD_SAMPLE') {
+        briefingContext = null;
         videoContext.load({ ...SAMPLE_TRANSCRIPT });
         sendTranscriptReady('sample');
       } else if (msg.action === 'LOAD_NASA_DEMO') {
+        briefingContext = null;
         videoContext.load({ ...NASA_DEMO });
         sendTranscriptReady('nasa');
+      } else if (msg.action === 'LOAD_BRIEFING') {
+        briefingContext = new BriefingContext([NASA_DEMO, ...BRIEFING_FEED]);
+        sendBriefingReady();
       } else if (msg.action === 'START_VOICE_AGENT') {
-        if (!videoContext.hasTranscript) {
-          sendToClient('ERROR', { scope: 'agent', message: 'Load a video transcript before starting the voice agent.' });
+        if (!briefingContext && !videoContext.hasTranscript) {
+          sendToClient('ERROR', { scope: 'agent', message: 'Load a video or briefing before starting the voice agent.' });
           return;
         }
         turnClock = new TurnClock();
-        voiceAgentClient = new AssemblyAIVoiceAgentClient(process.env.ASSEMBLYAI_API_KEY, { videoContext, voice: msg.voice || 'anna' });
+        voiceAgentClient = new AssemblyAIVoiceAgentClient(process.env.ASSEMBLYAI_API_KEY, briefingContext ? { briefingContext, voice: msg.voice || 'anna' } : { videoContext, voice: msg.voice || 'anna' });
+        const groundLabel = briefingContext ? `your briefing (${briefingContext.count} videos)` : `"${videoContext.title}"`;
 
         voiceAgentClient.on('session_ready', (ev: any) => sendToClient('VOICE_AGENT_READY', {
           sessionId: ev.sessionId,
           voice: voiceAgentClient?.voice,
-          title: videoContext.title,
-          message: `Voice agent ready. Ask me anything about "${videoContext.title}".`
+          title: briefingContext ? 'Briefing' : videoContext.title,
+          message: `Voice agent ready. Ask me anything about ${groundLabel}.`
         }));
         voiceAgentClient.on('user_speech_started', () => {
           sendToClient('USER_SPEECH_STARTED');
@@ -259,21 +281,33 @@ wss.on('connection', (clientWs: WebSocket) => {
         sendToClient('VOICE_AGENT_STOPPED');
       } else if (msg.action === 'ASK_COPILOT') {
         const query = String(msg.query || '');
-        // Prefer LeMUR (Claude-powered) when live; fall back to local retrieval.
-        let answer: string | null = null;
-        const id = videoContext.result?.id;
-        if (id && !transcriptService.isMock) answer = await transcriptService.ask(id, query);
-        const grounded = answer == null ? videoContext.answerQuery(query) : { answer, citations: videoContext.search(query, 3).map((h) => ({ start: h.start, end: h.end, speaker: h.speaker, text: h.text })) };
-        sendToClient('COPILOT_ANSWER', {
-          query,
-          answer: grounded.answer,
-          citations: grounded.citations,
-          engine: answer == null ? 'local-retrieval' : 'lemur',
-          timestamp: new Date().toISOString()
-        });
+        if (briefingContext) {
+          // Cross-video grounded answer, with per-video LeMUR when live.
+          let answer: string | null = null;
+          if (!transcriptService.isMock) {
+            const ids = briefingContext.videos.map((v) => v.id).filter((i) => !i.startsWith('sample-') && !i.startsWith('nasa-scientific'));
+            if (ids.length) answer = await transcriptService.askMany(ids, query);
+          }
+          const grounded = briefingContext.answerQuery(query);
+          sendToClient('COPILOT_ANSWER', {
+            query,
+            answer: answer || grounded.answer,
+            citations: grounded.citations,
+            engine: answer ? 'lemur' : 'local-retrieval',
+            timestamp: new Date().toISOString()
+          });
+        } else {
+          // Single-video: prefer LeMUR when live; fall back to local retrieval.
+          let answer: string | null = null;
+          const id = videoContext.result?.id;
+          if (id && !transcriptService.isMock) answer = await transcriptService.ask(id, query);
+          const grounded = answer == null ? videoContext.answerQuery(query) : { answer, citations: videoContext.search(query, 3).map((h) => ({ start: h.start, end: h.end, speaker: h.speaker, text: h.text })) };
+          sendToClient('COPILOT_ANSWER', { query, answer: grounded.answer, citations: grounded.citations, engine: answer == null ? 'local-retrieval' : 'lemur', timestamp: new Date().toISOString() });
+        }
       } else if (msg.action === 'EXPORT_NOTE') {
-        sendToClient('EXPORT_DATA', { markdown: videoContext.exportMarkdown() });
+        sendToClient('EXPORT_DATA', { markdown: briefingContext ? briefingContext.exportMarkdown() : videoContext.exportMarkdown() });
       } else if (msg.action === 'RUN_SIMULATION') {
+        briefingContext = null;
         runSampleWalkthrough(sendToClient, videoContext);
       } else if (msg.action === 'INTERRUPT') {
         const haltMs = turnClock?.markBargeIn();

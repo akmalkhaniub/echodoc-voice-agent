@@ -43,3 +43,19 @@ export interface GroundedAnswer {
   answer: string;
   citations: Array<{ start: number; end: number; speaker: string; text: string }>;
 }
+
+/** A passage citation that also names which source video it came from. */
+export interface BriefingCitation {
+  videoId: string;
+  videoTitle: string;
+  start: number;
+  end: number;
+  speaker: string;
+  text: string;
+}
+
+/** A grounded answer across a multi-video briefing. */
+export interface BriefingAnswer {
+  answer: string;
+  citations: BriefingCitation[];
+}

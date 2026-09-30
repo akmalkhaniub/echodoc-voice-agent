@@ -26,7 +26,8 @@ class VoxDiveApp {
 
     const $ = (id) => document.getElementById(id);
     this.connectionStatus = $('connectionStatus'); this.modeBadge = $('modeBadge');
-    this.urlInput = $('urlInput'); this.btnTranscribe = $('btnTranscribe'); this.btnNasaDemo = $('btnNasaDemo'); this.btnLoadSample = $('btnLoadSample');
+    this.urlInput = $('urlInput'); this.btnTranscribe = $('btnTranscribe'); this.btnNasaDemo = $('btnNasaDemo'); this.btnLoadSample = $('btnLoadSample'); this.btnBriefing = $('btnBriefing');
+    this.isBriefing = false; this.briefingVideos = [];
     this.mediaHero = $('mediaHero'); this.mediaTitle = $('mediaTitle'); this.mediaMeta = $('mediaMeta'); this.speakerChips = $('speakerChips');
     this.summaryText = $('summaryText'); this.chaptersList = $('chaptersList');
     this.tabConversation = $('tabConversation'); this.tabTranscript = $('tabTranscript');
@@ -61,6 +62,7 @@ class VoxDiveApp {
     this.btnTranscribe.addEventListener('click', () => this.ingestUrl());
     this.urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); this.ingestUrl(); } });
     this.btnNasaDemo.addEventListener('click', () => this.send({ action: 'LOAD_NASA_DEMO' }, true));
+    this.btnBriefing.addEventListener('click', () => this.send({ action: 'LOAD_BRIEFING' }, true));
     this.btnLoadSample.addEventListener('click', () => this.send({ action: 'RUN_SIMULATION' }, true));
     this.tabConversation.addEventListener('click', () => this.switchTab('conversation'));
     this.tabTranscript.addEventListener('click', () => this.switchTab('transcript'));
@@ -93,6 +95,7 @@ class VoxDiveApp {
       case 'TRANSCRIBING': this.setBusy(true); this.appendSystem(msg.message || 'Transcribing…'); break;
       case 'TRANSCRIPT_SEGMENT': break; // (sample walkthrough streams; final state arrives in TRANSCRIPT_READY)
       case 'TRANSCRIPT_READY': this.setBusy(false); this.onTranscriptReady(msg); break;
+      case 'BRIEFING_READY': this.setBusy(false); this.onBriefingReady(msg); break;
       case 'VOICE_AGENT_READY': this.appendSystem(`🎙️ Voice agent online. ${msg.message || ''}`); break;
       case 'USER_SPEECH_STARTED': this.stopAudioPlayback(); this.showPartial('Listening…'); break;
       case 'USER_TRANSCRIPT_DELTA': this.showPartial(msg.text); break;
@@ -138,6 +141,43 @@ class VoxDiveApp {
     this.btnExport.disabled = false; this.btnExport.classList.remove('opacity-50');
     this.chatContainer.querySelector('.py-10')?.remove();
     this.appendSystem(`✅ Ready — ask about “${msg.title}”, or open the Transcript tab.`);
+  }
+
+  onBriefingReady(msg) {
+    this.isBriefing = true; this.hasTranscript = true; this.briefingVideos = msg.videos || [];
+    this.mediaTitle.innerText = 'Your briefing';
+    this.mediaMeta.innerText = `${msg.count} videos · ask across all of them`;
+    this.speakerChips.innerHTML = '';
+    if (msg.briefing) { this.summaryText.innerText = msg.briefing; this.summaryText.classList.remove('italic', 'text-mute'); }
+
+    // Source-video list (click to load into the player)
+    this.chaptersList.innerHTML = '<div class="text-[11px] uppercase tracking-wide text-mute mb-1">In this briefing</div>';
+    this.briefingVideos.forEach((v) => {
+      const b = document.createElement('button');
+      b.className = 'briefing-src w-full text-left px-3 py-2 rounded-lg border border-line hover:border-violet-300 hover:bg-violet-50/40 transition'; b.dataset.vid = v.id;
+      const mins = Math.floor((v.durationSec || 0) / 60), secs = (v.durationSec || 0) % 60;
+      b.innerHTML = `<div class="text-[13px] font-medium text-ink">${v.title}</div><p class="text-[12px] text-mute mt-0.5">${mins}:${String(secs).padStart(2, '0')} · ${(v.speakers || []).length} speaker(s)</p>`;
+      b.addEventListener('click', () => this.loadBriefingVideo(v.id));
+      this.chaptersList.appendChild(b);
+    });
+
+    this.loadBriefingVideo(this.briefingVideos[0]?.id, null, false);
+    this.btnVoiceAgentToggle.disabled = false; this.btnVoiceAgentToggle.classList.remove('opacity-50', 'cursor-not-allowed');
+    this.btnExport.disabled = false; this.btnExport.classList.remove('opacity-50');
+    this.chatContainer.querySelector('.py-10')?.remove();
+    this.appendSystem(`✅ Briefing ready across ${msg.count} videos. Ask "catch me up", or ask anything — I'll tell you which video it's from and jump you there.`);
+  }
+
+  loadBriefingVideo(videoId, seekSec, announce = true) {
+    const v = this.briefingVideos.find((x) => x.id === videoId);
+    if (!v) return;
+    this.sourceUrl = v.sourceUrl; this.mediaKind = this.mediaKindOf(this.sourceUrl); this.segments = v.segments || [];
+    this.speakerColor = {}; (v.speakers || []).forEach((s, i) => { this.speakerColor[s] = SPEAKER_COLORS[i % SPEAKER_COLORS.length]; });
+    this.renderMedia(v.title);
+    this.renderTranscriptPanel();
+    this.chaptersList.querySelectorAll('.briefing-src').forEach((el) => el.classList.toggle('bg-violet-50', el.dataset.vid === videoId));
+    if (typeof seekSec === 'number') setTimeout(() => this.seekTo(seekSec), 300);
+    if (announce) this.appendSystem(`▶ ${v.title}`);
   }
 
   // ---------- media ----------
@@ -257,12 +297,18 @@ class VoxDiveApp {
     citations.forEach((c) => {
       const chip = document.createElement('button');
       chip.className = 'cite inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-100';
-      chip.innerHTML = `<span class="mono">${this.fmt(c.start)}</span> jump`;
-      chip.title = `${c.speaker}: ${c.text}`;
-      chip.addEventListener('click', () => this.seekTo(c.start));
+      if (c.videoTitle) {
+        const short = c.videoTitle.length > 26 ? c.videoTitle.slice(0, 24) + '…' : c.videoTitle;
+        chip.innerHTML = `<span class="font-medium">${short}</span> <span class="mono">${this.fmt(c.start)}</span>`;
+        chip.title = `${c.videoTitle} — ${c.speaker}: ${c.text}`;
+        chip.addEventListener('click', () => this.loadBriefingVideo(c.videoId, c.start));
+      } else {
+        chip.innerHTML = `<span class="mono">${this.fmt(c.start)}</span> jump`;
+        chip.title = `${c.speaker}: ${c.text}`;
+        chip.addEventListener('click', () => this.seekTo(c.start));
+        this.captureThumb(c.start).then((url) => { if (url) { const img = document.createElement('img'); img.src = url; img.className = 'h-8 w-auto rounded border border-indigo-100 cursor-pointer'; img.addEventListener('click', () => this.seekTo(c.start)); wrap.appendChild(img); } });
+      }
       wrap.appendChild(chip);
-      // async thumbnail
-      this.captureThumb(c.start).then((url) => { if (url) { const img = document.createElement('img'); img.src = url; img.className = 'h-8 w-auto rounded border border-indigo-100 cursor-pointer'; img.addEventListener('click', () => this.seekTo(c.start)); wrap.appendChild(img); } });
     });
     return wrap;
   }
@@ -278,7 +324,7 @@ class VoxDiveApp {
   hidePartial() { this.partialBox.classList.add('hidden'); }
 
   resetContent() {
-    this.hasTranscript = false; this.segments = []; this.player = null; this.thumbCache = {};
+    this.hasTranscript = false; this.isBriefing = false; this.briefingVideos = []; this.segments = []; this.player = null; this.thumbCache = {};
     this.chatContainer.innerHTML = ''; this.transcriptPanel.innerHTML = '';
     this.chaptersList.innerHTML = '<p class="text-[13px] text-mute italic">Chapters appear after transcription…</p>';
     this.summaryText.innerText = 'The summary appears here once a video is transcribed.'; this.summaryText.classList.add('italic', 'text-mute');
